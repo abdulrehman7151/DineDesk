@@ -12,11 +12,7 @@ model User {
   email     String   @unique
   password  String
   createdAt DateTime @default(now())
-
-  // Restaurants owned by this user
   restaurants Restaurant[] @relation("RestaurantOwner")
-
-  // Restaurants where this user is a member
   memberships RestaurantUser[]
 }
 
@@ -27,25 +23,41 @@ model Restaurant {
   address   String
   phone     String
   createdAt DateTime @default(now())
-
   ownerId Int
   owner   User @relation("RestaurantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-
   users RestaurantUser[]
+  menuItems MenuItem[]
 }
 
 model RestaurantUser {
   id Int @id @default(autoincrement())
-
   userId       Int
   restaurantId Int
-
-  // admin, chef, cashier, etc.
   role String @default("chef")
-
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-
-  // Same user cannot be added to same restaurant twice
   @@unique([userId, restaurantId])
+}
+
+model MenuItem {
+  id          Int      @id @default(autoincrement())
+  name        String
+  category    String
+  description String?
+  imageUrl    String?
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  basePrice   Int?
+  sizes       MenuItemSize[]
+  restaurantId Int
+  restaurant  Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model MenuItemSize {
+  id         Int      @id @default(autoincrement())
+  name       String
+  price      Int
+  menuItemId Int
+  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  @@unique([menuItemId, name])
 }
