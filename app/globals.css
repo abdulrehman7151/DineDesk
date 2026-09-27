@@ -1,1 +1,42 @@
 @import "tailwindcss";
+
+@theme {
+    /* ── Surfaces ─────────────────────────────── */
+    --color-surface: #ffffff;
+    --color-surface-tint: #faf7f6;
+    --color-surface-warm: #f5f0ee;
+    --color-surface-dark: #1a1211;
+
+    /* ── Text ─────────────────────────────────── */
+    --color-ink: #1a1211;
+    --color-ink-soft: #6b6260;
+    --color-ink-muted: #9d9491;
+
+    /* ── Borders ──────────────────────────────── */
+    --color-hairline: rgba(26, 18, 17, 0.08);
+
+    /* ── Brand ────────────────────────────────── */
+    --color-brand: #a2151c;
+    --color-brand-deep: #7d0f15;
+    --color-brand-soft: #fdf2f2;
+
+    /* ── Accents ──────────────────────────────── */
+    --color-price: #a2151c;
+    --color-star: #e8a33d;
+    --color-success-bg: #e9f6ed;
+    --color-success-text: #1f7a3f;
+
+    /* ── Radius ───────────────────────────────── */
+    --radius-card: 1.25rem;
+    --radius-pill: 9999px;
+
+    /* ── Shadows ──────────────────────────────── */
+    --shadow-soft: 0 1px 2px rgba(26, 18, 17, 0.04), 0 4px 12px rgba(26, 18, 17, 0.05);
+    --shadow-lift: 0 8px 24px rgba(26, 18, 17, 0.10);
+}
+
+body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+}

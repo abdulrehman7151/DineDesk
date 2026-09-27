@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  // Restaurants owned by this user
+  restaurants Restaurant[] @relation("RestaurantOwner")
+
+  // Restaurants where this user is a member
+  memberships RestaurantUser[]
+}
+
+model Restaurant {
+  id        Int      @id @default(autoincrement())
+  name      String
+  city      String
+  address   String
+  phone     String
+  createdAt DateTime @default(now())
+
+  ownerId Int
+  owner   User @relation("RestaurantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  users RestaurantUser[]
+}
+
+model RestaurantUser {
+  id Int @id @default(autoincrement())
+
+  userId       Int
+  restaurantId Int
+
+  // admin, chef, cashier, etc.
+  role String @default("chef")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  // Same user cannot be added to same restaurant twice
+  @@unique([userId, restaurantId])
+}
