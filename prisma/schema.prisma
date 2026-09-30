@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,57 +8,62 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  restaurants Restaurant[] @relation("RestaurantOwner")
+  id          Int              @id @default(autoincrement())
+  name        String
+  email       String           @unique
+  password    String
+  createdAt   DateTime         @default(now())
+  restaurants Restaurant[]     @relation("RestaurantOwner")
   memberships RestaurantUser[]
 }
 
 model Restaurant {
-  id        Int      @id @default(autoincrement())
+  id        Int              @id @default(autoincrement())
   name      String
   city      String
   address   String
   phone     String
-  createdAt DateTime @default(now())
-  ownerId Int
-  owner   User @relation("RestaurantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  users RestaurantUser[]
+  createdAt DateTime         @default(now())
+  ownerId   Int
+  owner     User             @relation("RestaurantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  users     RestaurantUser[]
   menuItems MenuItem[]
+  @@index([ownerId], map: "Restaurant_ownerId_fkey")
 }
 
 model RestaurantUser {
-  id Int @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   userId       Int
   restaurantId Int
-  role String @default("chef")
+  role         String     @default("chef")
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   @@unique([userId, restaurantId])
+  @@index([restaurantId], map: "RestaurantUser_restaurantId_fkey")
 }
 
 model MenuItem {
-  id          Int      @id @default(autoincrement())
-  name        String
-  category    String
-  description String?
-  imageUrl    String?
-  isAvailable Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  basePrice   Int?
-  sizes       MenuItemSize[]
+  id           Int             @id @default(autoincrement())
+  ProductName  String
+  category     String
+  description  String?
+  imageUrl     String?
+  isAvailable  Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  basePrice    Int?
   restaurantId Int
-  restaurant  Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  sizes      MenuItemSize[]
+  @@unique([restaurantId, ProductName])
+  @@index([restaurantId], map: "MenuItem_restaurantId_fkey")
 }
 
 model MenuItemSize {
   id         Int      @id @default(autoincrement())
-  name       String
+  Size       String
   price      Int
   menuItemId Int
-  menuItem   MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  @@unique([menuItemId, name])
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  @@unique([menuItemId, Size])
 }
+
