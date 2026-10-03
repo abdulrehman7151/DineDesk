@@ -1,25 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useState } from "react";
+import type { MenuItem, Restaurant } from "@/types/menu";
+import ItemDetailModal from "@/components/ItemDetailModal";
+import ViewOrderSheet from "@/components/ViewOrderSheet";
 
-type MenuSize = {
-    id: number;
-    Size: string;
-    price: number;
-    menuItemId: number;
+type CartLine = {
+    itemId: number;
+    sizeId: number | null;
+    quantity: number;
+    note?: string;
 };
 
-type MenuItem = {
-    id: number;
-    ProductName: string;
-    category: string;
-    description: string | null;
-    imageUrl: string | null;
-    isAvailable: boolean;
-    basePrice: number | null;
-    createdAt: Date | string;
-    restaurantId: number;
-    sizes: MenuSize[];
+type Props = {
+    items: MenuItem[];
+    restaurantSlug: string;
+    restaurant: Restaurant;
 };
 
 const categories = [
@@ -33,9 +29,35 @@ const categories = [
     "Desserts",
 ];
 
-export default function HomeClient({ items }: { items: MenuItem[] }) {
-    const availableItems = items.filter((i) => i.isAvailable);
-    const popularItems = availableItems.slice(0, 3);
+export default function HomeClient({ items, restaurantSlug, restaurant }: Props) {
+    const [activeCategory, setActiveCategory] = useState("All");
+    const [searchValue, setSearchValue] = useState("");
+
+    // Modal state
+    const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+
+    // View order sheet state
+    const [isOrderOpen, setIsOrderOpen] = useState(false);
+
+    // Local cart (in-memory; replace with server/context later)
+    const [cart, setCart] = useState<CartLine[]>([]);
+
+    const availableItems = useMemo(
+        () =>
+            items.filter((item) => {
+                if (!item.isAvailable) return false;
+
+                const matchesCategory =
+                    activeCategory === "All" || item.category === activeCategory;
+
+                const matchesSearch = item.ProductName.toLowerCase().includes(
+                    searchValue.toLowerCase()
+                );
+
+                return matchesCategory && matchesSearch;
+            }),
+        [items, activeCategory, searchValue]
+    );
 
     const getStartingPrice = (item: MenuItem) => {
         if (item.basePrice != null) return item.basePrice;
@@ -43,6 +65,80 @@ export default function HomeClient({ items }: { items: MenuItem[] }) {
             return Math.min(...item.sizes.map((s) => s.price));
         return 0;
     };
+
+    // ---------- Cart helpers ----------
+    const handleAddToCart = ({
+        item,
+        sizeId,
+        quantity,
+        note,
+    }: {
+        item: MenuItem;
+        sizeId: number | null;
+        quantity: number;
+        note?: string;
+    }) => {
+        setCart((prev) => {
+            const existing = prev.find(
+                (l) => l.itemId === item.id && l.sizeId === sizeId
+            );
+            if (existing) {
+                return prev.map((l) =>
+                    l.itemId === item.id && l.sizeId === sizeId
+                        ? {
+                            ...l,
+                            quantity: l.quantity + quantity,
+                            note: note ?? l.note,
+                        }
+                        : l
+                );
+            }
+            return [...prev, { itemId: item.id, sizeId, quantity, note }];
+        });
+    };
+
+    const handleChangeQuantity = (
+        itemId: number,
+        sizeId: number | null,
+        delta: number
+    ) => {
+        setCart((prev) =>
+            prev
+                .map((l) =>
+                    l.itemId === itemId && l.sizeId === sizeId
+                        ? { ...l, quantity: l.quantity + delta }
+                        : l
+                )
+                .filter((l) => l.quantity > 0)
+        );
+    };
+
+    const handleRemoveLine = (itemId: number, sizeId: number | null) => {
+        setCart((prev) =>
+            prev.filter(
+                (l) => !(l.itemId === itemId && l.sizeId === sizeId)
+            )
+        );
+    };
+
+    const handlePlaceOrder = () => {
+        // TODO: replace with a real server action / API call
+        console.log("Placing order:", cart);
+        setCart([]);
+        setIsOrderOpen(false);
+    };
+
+    const cartCount = cart.reduce((sum, l) => sum + l.quantity, 0);
+
+    const cartTotal = cart.reduce((sum, line) => {
+        const item = items.find((i) => i.id === line.itemId);
+        if (!item) return sum;
+        const size = line.sizeId
+            ? item.sizes.find((s) => s.id === line.sizeId)
+            : null;
+        const price = size?.price ?? item.basePrice ?? 0;
+        return sum + price * line.quantity;
+    }, 0);
 
     return (
         <main className="min-h-screen bg-surface text-ink">
@@ -76,11 +172,11 @@ export default function HomeClient({ items }: { items: MenuItem[] }) {
                                 Welcome to
                             </p>
                             <h2 className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                                The Urban Kitchen
+                                {restaurant.name}
                             </h2>
                             <p className="mt-2 max-w-xl text-sm leading-6 text-white/70">
-                                Explore our menu and order your favorite dishes directly from
-                                your table.
+                                Explore our menu and order your favorite dishes
+                                directly from your table.
                             </p>
 
                             <div className="mt-5 flex flex-wrap gap-2">
@@ -88,7 +184,7 @@ export default function HomeClient({ items }: { items: MenuItem[] }) {
                                     ● Open · until 11 PM
                                 </span>
                                 <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
-                                    📍 Islamabad
+                                    📍 {restaurant.city} · {restaurant.address}
                                 </span>
                             </div>
                         </div>
@@ -104,6 +200,8 @@ export default function HomeClient({ items }: { items: MenuItem[] }) {
                         <input
                             type="text"
                             placeholder="Search for food or drinks..."
+                            value={searchValue}
+                            onChange={(e) => setSearchValue(e.target.value)}
                             className="w-full rounded-full border border-hairline bg-surface py-3.5 pl-12 pr-4 text-sm text-ink shadow-soft outline-none transition placeholder:text-ink-muted focus:border-brand focus:ring-4 focus:ring-brand-soft"
                         />
                         <svg
@@ -125,105 +223,40 @@ export default function HomeClient({ items }: { items: MenuItem[] }) {
                 {/* Categories */}
                 <section className="mt-6">
                     <div className="flex gap-2.5 overflow-x-auto pb-2">
-                        {categories.map((category, index) => (
-                            <button
-                                key={category}
-                                className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition ${index === 0
-                                    ? "bg-brand text-white shadow-soft"
-                                    : "border border-hairline bg-surface text-ink-soft shadow-soft hover:text-ink"
-                                    }`}
-                            >
-                                {category}
-                            </button>
-                        ))}
+                        {categories.map((category) => {
+                            const isActive = category === activeCategory;
+                            return (
+                                <button
+                                    key={category}
+                                    type="button"
+                                    onClick={() => setActiveCategory(category)}
+                                    className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition ${isActive
+                                            ? "bg-brand text-white shadow-soft"
+                                            : "border border-hairline bg-surface text-ink-soft shadow-soft hover:text-ink"
+                                        }`}
+                                >
+                                    {category}
+                                </button>
+                            );
+                        })}
                     </div>
                 </section>
 
-                {/* Popular Items */}
-                {/* {popularItems.length > 0 && (
-                    <section className="mt-10">
-                        <div className="mb-5 flex items-baseline justify-between">
-                            <div>
-                                <p className="text-sm font-semibold text-brand">
-                                    Customer favorites
-                                </p>
-                                <h3 className="mt-0.5 text-2xl font-bold tracking-tight">
-                                    Popular Items
-                                </h3>
-                            </div>
-                            <button className="text-sm font-semibold text-brand hover:text-brand-deep">
-                                See all →
-                            </button>
-                        </div>
-
-                        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                            {popularItems.map((item) => (
-                                <article
-                                    key={item.id}
-                                    className="overflow-hidden rounded-card border border-hairline bg-surface p-3 shadow-soft transition hover:shadow-lift"
-                                >
-                                    <div className="relative">
-                                        <img
-                                            src={item.imageUrl ?? "/placeholder.png"}
-                                            alt={item.ProductName}
-                                            className="h-52 w-full rounded-2xl object-cover"
-                                        />
-
-                                        <span className="absolute left-5 top-5 rounded-full bg-brand px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                                            Popular
-                                        </span>
-
-                                        <span className="absolute bottom-5 right-5 rounded-full bg-white/95 px-3 py-1.5 text-sm font-bold text-price backdrop-blur">
-                                            Rs. {getStartingPrice(item)}
-                                        </span>
-                                    </div>
-
-                                    <div className="px-2 pb-2 pt-4">
-                                        <h4 className="mt-1 font-bold text-ink">
-                                            {item.ProductName}
-                                        </h4>
-                                        <p className="mt-1 text-sm leading-5 text-ink-soft">
-                                            {item.description}
-                                        </p>
-
-                                        {item.sizes.length > 0 && (
-                                            <div className="mt-2 flex flex-wrap gap-1">
-                                                {item.sizes.map((s) => (
-                                                    <span
-                                                        key={s.id}
-                                                        className="rounded-full bg-surface-tint px-2 py-0.5 text-[10px] font-semibold text-ink-soft"
-                                                    >
-                                                        {s.Size} · Rs. {s.price}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        <button className="mt-4 w-full rounded-full bg-brand py-3 text-sm font-bold text-white transition hover:bg-brand-deep">
-                                            Add to Order
-                                        </button>
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
-                    </section>
-                )} */}
-
-                {/* Full Menu */}
+                {/* Menu grid */}
                 <section className="mt-12">
                     <div className="mb-5">
                         <p className="text-sm font-semibold text-brand">
                             Explore our selection
                         </p>
                         <h3 className="mt-0.5 text-2xl font-bold tracking-tight">
-                            Full Menu
+                            {activeCategory === "All" ? "Full Menu" : activeCategory}
                         </h3>
                     </div>
 
                     {availableItems.length === 0 ? (
                         <div className="rounded-card border border-hairline bg-surface-tint p-10 text-center">
                             <p className="text-sm text-ink-soft">
-                                No items available right now. Please check back soon.
+                                No items available in this category yet.
                             </p>
                         </div>
                     ) : (
@@ -233,49 +266,58 @@ export default function HomeClient({ items }: { items: MenuItem[] }) {
                                     key={item.id}
                                     className="group flex flex-col overflow-hidden rounded-card border border-hairline bg-surface p-3 shadow-soft transition hover:shadow-lift"
                                 >
-                                    <div className="relative">
-                                        <img
-                                            src={item.imageUrl ?? "/placeholder.png"}
-                                            alt={item.ProductName}
-                                            className="h-44 w-full rounded-2xl object-cover"
-                                        />
-
-                                        <span className="absolute left-4 top-4 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-ink backdrop-blur">
-                                            {item.category}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex flex-1 flex-col px-2 pb-2 pt-4">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <h4 className="font-bold text-ink">
-                                                {item.ProductName}
-                                            </h4>
-                                            <span className="whitespace-nowrap text-sm font-bold text-price">
-                                                Rs. {getStartingPrice(item)}
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedItem(item)}
+                                        className="flex flex-1 flex-col text-left"
+                                    >
+                                        <div className="relative">
+                                            <img
+                                                src={item.imageUrl ?? "/placeholder.png"}
+                                                alt={item.ProductName}
+                                                className="h-44 w-full rounded-2xl object-cover"
+                                            />
+                                            <span className="absolute left-4 top-4 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-ink backdrop-blur">
+                                                {item.category}
                                             </span>
                                         </div>
 
-                                        <p className="mt-2 line-clamp-2 text-sm leading-5 text-ink-soft">
-                                            {item.description}
-                                        </p>
-
-                                        {item.sizes.length > 0 && (
-                                            <div className="mt-2 flex flex-wrap gap-1">
-                                                {item.sizes.map((s) => (
-                                                    <span
-                                                        key={s.id}
-                                                        className="rounded-full bg-surface-tint px-2 py-0.5 text-[10px] font-semibold text-ink-soft"
-                                                    >
-                                                        {s.Size} · Rs. {s.price}
-                                                    </span>
-                                                ))}
+                                        <div className="flex flex-1 flex-col px-2 pb-2 pt-4">
+                                            <div className="flex items-start justify-between gap-3">
+                                                <h4 className="font-bold text-ink">
+                                                    {item.ProductName}
+                                                </h4>
+                                                <span className="whitespace-nowrap text-sm font-bold text-price">
+                                                    Starts From Rs. {getStartingPrice(item)}
+                                                </span>
                                             </div>
-                                        )}
 
-                                        <button className="mt-4 w-full rounded-full bg-brand py-2.5 text-sm font-bold text-white transition hover:bg-brand-deep">
-                                            + Add to Order
-                                        </button>
-                                    </div>
+                                            <p className="mt-2 line-clamp-2 text-sm leading-5 text-ink-soft">
+                                                {item.description}
+                                            </p>
+
+                                            {item.sizes.length > 0 && (
+                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                    {item.sizes.map((s) => (
+                                                        <span
+                                                            key={s.id}
+                                                            className="rounded-full bg-surface-tint px-2 py-0.5 text-[10px] font-semibold text-ink-soft"
+                                                        >
+                                                            {s.Size} · Rs. {s.price}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedItem(item)}
+                                        className="mt-4 w-full rounded-full bg-brand py-2.5 text-sm font-bold text-white transition hover:bg-brand-deep"
+                                    >
+                                        + Add to Order
+                                    </button>
                                 </article>
                             ))}
                         </div>
@@ -284,35 +326,65 @@ export default function HomeClient({ items }: { items: MenuItem[] }) {
 
                 {/* Footer card */}
                 <section className="mt-12 rounded-card bg-surface-dark p-7 text-center shadow-soft">
-                    <h3 className="text-lg font-bold text-white">The Urban Kitchen</h3>
+                    <h3 className="text-lg font-bold text-white">
+                        {restaurant.name}
+                    </h3>
                     <p className="mt-1.5 text-sm text-white/60">
                         Fresh food prepared with quality ingredients.
                     </p>
-
                     <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-white/70">
                         <span>Open 11:00 AM – 11:00 PM</span>
-                        <span>Islamabad, Pakistan</span>
-                        <span>+92 300 1234567</span>
+                        <span>
+                            {restaurant.city} · {restaurant.address}
+                        </span>
+                        <span>{restaurant.phone}</span>
                     </div>
                 </section>
             </div>
 
-            {/* Cart Bar */}
+            {/* Cart bar */}
             <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-hairline bg-surface/85 p-3 backdrop-blur-md">
                 <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
                     <div>
                         <p className="text-xs text-ink-soft">Your Order</p>
-                        <p className="font-bold text-ink">2 items · Rs. 1,600</p>
+                        <p className="font-bold text-ink">
+                            {cartCount} item{cartCount === 1 ? "" : "s"} · Rs.{" "}
+                            {cartTotal.toLocaleString()}
+                        </p>
                     </div>
-
-                    <button className="flex items-center gap-2 rounded-full bg-brand px-6 py-3 text-sm font-bold text-white shadow-soft transition hover:bg-brand-deep">
+                    <button
+                        type="button"
+                        disabled={cartCount === 0}
+                        onClick={() => setIsOrderOpen(true)}
+                        className="flex items-center gap-2 rounded-full bg-brand px-6 py-3 text-sm font-bold text-white shadow-soft transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
+                    >
                         View Order
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-brand">
-                            2
+                            {cartCount}
                         </span>
                     </button>
                 </div>
             </div>
+
+            {/* Item detail modal */}
+            {selectedItem && (
+                <ItemDetailModal
+                    item={selectedItem}
+                    onClose={() => setSelectedItem(null)}
+                    onAdd={handleAddToCart}
+                />
+            )}
+
+            {/* View order sheet */}
+            <ViewOrderSheet
+                isOpen={isOrderOpen}
+                onClose={() => setIsOrderOpen(false)}
+                items={items}
+                cart={cart}
+                onChangeQuantity={handleChangeQuantity}
+                onRemove={handleRemoveLine}
+                onPlaceOrder={handlePlaceOrder}
+            />
         </main>
     );
 }

@@ -28,6 +28,7 @@ export async function signup(
     const password = formData.get("password");
     const confirmPassword = formData.get("confirmPassword");
 
+
     if (
         typeof restaurantName !== "string" ||
         typeof phone !== "string" ||

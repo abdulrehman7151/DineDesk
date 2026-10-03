@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import { getMenuItems } from "@/services/MenuServices";
+import DeleteMenuButton from "@/components/DeleteMenuButton";
 
 export default async function AdminMenu() {
     const user = await getUserFromToken();
@@ -31,7 +32,7 @@ export default async function AdminMenu() {
                 </Link>
             </div>
 
-            {/* Filters (visual only for now) */}
+            {/* Filters */}
             <div className="flex flex-wrap items-center gap-3 rounded-card border border-hairline bg-surface p-4 shadow-soft">
                 <input
                     type="text"
@@ -62,7 +63,6 @@ export default async function AdminMenu() {
             ) : (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {items.map((item) => {
-                        // If item has sizes, show cheapest size as starting price
                         const startingPrice =
                             item.basePrice ??
                             (item.sizes.length > 0
@@ -82,8 +82,8 @@ export default async function AdminMenu() {
                                     />
                                     <span
                                         className={`absolute left-4 top-4 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${item.isAvailable
-                                                ? "bg-success-bg text-success-text"
-                                                : "bg-brand-soft text-brand"
+                                            ? "bg-success-bg text-success-text"
+                                            : "bg-brand-soft text-brand"
                                             }`}
                                     >
                                         {item.isAvailable ? "Available" : "Hidden"}
@@ -101,11 +101,10 @@ export default async function AdminMenu() {
                                             </p>
                                         </div>
                                         <span className="text-sm font-bold text-price">
-                                            Rs. {startingPrice}
+                                            Starting From Rs. {startingPrice}
                                         </span>
                                     </div>
 
-                                    {/* Size chips (if any) */}
                                     {item.sizes.length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-1">
                                             {item.sizes.map((s) => (
@@ -120,12 +119,16 @@ export default async function AdminMenu() {
                                     )}
 
                                     <div className="mt-4 flex gap-2">
-                                        <button className="flex-1 rounded-full border border-hairline bg-surface-tint py-2 text-xs font-bold text-ink transition hover:border-brand hover:text-brand">
+                                        <Link
+                                            href={`/admin/menu/edititem?id=${item.id}`}
+                                            className="flex-1 rounded-full border border-hairline bg-surface-tint py-2 text-xs font-bold text-ink transition hover:border-brand hover:text-brand text-center"
+                                        >
                                             Edit
-                                        </button>
-                                        <button className="flex-1 rounded-full bg-brand py-2 text-xs font-bold text-white transition hover:bg-brand-deep">
-                                            Delete
-                                        </button>
+                                        </Link>
+                                        <DeleteMenuButton
+                                            id={item.id}
+                                            itemName={item.ProductName}
+                                        />
                                     </div>
                                 </div>
                             </div>

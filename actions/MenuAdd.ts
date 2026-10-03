@@ -229,12 +229,12 @@ export async function MenuAction(
 
 
     // Maximum 2MB
-    const maxSize = 2 * 1024 * 1024;
+    const maxSize = 5 * 1024 * 1024;
 
     if (image.size > maxSize) {
         return {
             success: false,
-            message: "Image must be smaller than 2MB.",
+            message: "Image must be smaller than 5MB.",
         };
     }
 
@@ -260,6 +260,23 @@ export async function MenuAction(
     // =========================
     // Upload image to Cloudinary
     // =========================
+
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME?.trim();
+    const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
+    const apiSecret = process.env.CLOUDINARY_API_SECRET?.trim();
+
+    if (!cloudName || !apiKey || !apiSecret) {
+        console.error("Cloudinary config missing:", {
+            cloudName: !!cloudName,
+            apiKey: !!apiKey,
+            apiSecret: !!apiSecret,
+        });
+
+        return {
+            success: false,
+            message: "Image upload is not configured. Please contact the administrator.",
+        };
+    }
 
     let secureUrl = "";
     let publicId = "";
@@ -292,15 +309,22 @@ export async function MenuAction(
             }
         );
 
+        if (!result?.secure_url || !result?.public_id) {
+            throw new Error("Cloudinary returned empty upload data.");
+        }
 
         secureUrl = result.secure_url;
         publicId = result.public_id;
 
-    } catch {
+    } catch (error) {
+        console.error("Cloudinary upload failed:", error);
 
         return {
             success: false,
-            message: "Failed to upload image.",
+            message:
+                error instanceof Error
+                    ? error.message
+                    : "Failed to upload image.",
         };
     }
 
@@ -358,8 +382,22 @@ export async function MenuAction(
             message: "Menu item added successfully.",
             data: menu,
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Menu create error:", error);
+
+        const message =
+            error instanceof Error
+                ? error.message
+                : typeof error === "string"
+                    ? error
+                    : "Failed to save menu item. Please try again.";
+
+        if (error?.code === "P2002" || /already exists/i.test(message)) {
+            return {
+                success: false,
+                message: "A menu item with this name already exists for this restaurant.",
+            };
+        }
 
         // Roll back the Cloudinary upload if DB write fails
         try {
@@ -368,7 +406,7 @@ export async function MenuAction(
 
         return {
             success: false,
-            message: "Failed to save menu item. Please try again.",
+            message: message || "Failed to save menu item. Please try again.",
         };
     }
 }

@@ -8,6 +8,7 @@ import React, {
 } from "react";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 
 const categories = [
@@ -114,7 +115,7 @@ export default function MenuItemForm({
         message: "",
     };
 
-
+    const router = useRouter();
     // =========================
     // React state
     // =========================
@@ -165,7 +166,14 @@ export default function MenuItemForm({
             }
         };
     }, [imagePreview]);
-
+    useEffect(() => {
+        if (state.success && isEdit) {
+            const t = setTimeout(() => {
+                router.push("/admin/menu");
+            }, 1200);
+            return () => clearTimeout(t);
+        }
+    }, [state.success, isEdit, router]);
 
     // Handle file selection
     const handleImageChange = (

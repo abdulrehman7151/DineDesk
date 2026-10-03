@@ -1,6 +1,8 @@
+// hotel-mangement/services/Authservices.ts
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import { createToken } from "@/lib/authtoke";
+import { createUniqueSlug } from "@/lib/slug";
 
 type SignupData = {
     name: string;
@@ -30,16 +32,20 @@ export type SignInResult =
     };
 
 export async function createUserAndRestaurant(data: SignupData) {
+    // 1. Generate a unique slug BEFORE opening the transaction,
+    //    since createUniqueSlug performs its own DB reads.
+    const slug = await createUniqueSlug(data.restaurantName);
+
+    // 2. Guard against duplicate emails.
     const existingUser = await prisma.user.findUnique({
-        where: {
-            email: data.email,
-        },
+        where: { email: data.email },
     });
 
     if (existingUser) {
         throw new Error("This email is already registered.");
     }
 
+    // 3. Create user + restaurant + membership atomically.
     return await prisma.$transaction(async (tx) => {
         const user = await tx.user.create({
             data: {
@@ -52,6 +58,7 @@ export async function createUserAndRestaurant(data: SignupData) {
         const restaurant = await tx.restaurant.create({
             data: {
                 name: data.restaurantName,
+                slug,
                 city: data.city,
                 address: data.address,
                 phone: data.phone,
