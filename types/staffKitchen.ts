@@ -25,5 +25,4 @@ export interface StaffMember {
     email: string;
     phone?: string;
     isActive: boolean;
-    shift?: "morning" | "evening" | "night";
 }

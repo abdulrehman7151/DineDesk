@@ -29,6 +29,7 @@ model Restaurant {
   owner     User             @relation("RestaurantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   users     RestaurantUser[]
   menuItems MenuItem[]
+   orders    Order[]     // ← add this
   @@index([ownerId], map: "Restaurant_ownerId_fkey")
 }
 
@@ -55,6 +56,7 @@ model MenuItem {
   restaurantId Int
   restaurant Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   sizes      MenuItemSize[]
+   orderItems OrderItem[]  // ← add this
   @@unique([restaurantId, ProductName])
   @@index([restaurantId], map: "MenuItem_restaurantId_fkey")
 }
@@ -64,7 +66,51 @@ model MenuItemSize {
   Size       String
   price      Int
   menuItemId Int
+  orderItems OrderItem[]  // ← add this
   menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   @@unique([menuItemId, Size])
 }
 
+enum OrderStatus {
+  PENDING
+  PREPARING
+  READY
+  SERVED
+  CANCELLED
+}
+
+model Order {
+  id           Int         @id @default(autoincrement())
+  restaurantId Int
+  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orderItems   OrderItem[]
+  status       OrderStatus @default(PENDING)
+  tableNumber  Int?
+  total        Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([restaurantId])
+  @@index([status])
+}
+
+model OrderItem {
+  id             Int           @id @default(autoincrement())
+  orderId        Int
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productName    String
+
+
+  menuItemId     Int?
+  menuItem       MenuItem?     @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  menuItemSizeId Int?
+  menuItemSize   MenuItemSize? @relation(fields: [menuItemSizeId], references: [id], onDelete: SetNull)
+
+  quantity       Int           @default(1)
+  unitPrice      Int
+  notes          String?
+
+  @@index([orderId])
+  @@index([menuItemId])
+}

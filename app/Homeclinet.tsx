@@ -1,9 +1,15 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { PlacingOrderAction } from "@/actions/orderAction";
 import type { MenuItem, Restaurant } from "@/types/menu";
 import ItemDetailModal from "@/components/ItemDetailModal";
 import ViewOrderSheet from "@/components/ViewOrderSheet";
+
+// =========================
+// Hardcoded table number
+// =========================
+const TABLE_NUMBER = 12;
 
 type CartLine = {
     itemId: number;
@@ -14,7 +20,6 @@ type CartLine = {
 
 type Props = {
     items: MenuItem[];
-    restaurantSlug: string;
     restaurant: Restaurant;
 };
 
@@ -29,7 +34,7 @@ const categories = [
     "Desserts",
 ];
 
-export default function HomeClient({ items, restaurantSlug, restaurant }: Props) {
+export default function HomeClient({ items, restaurant }: Props) {
     const [activeCategory, setActiveCategory] = useState("All");
     const [searchValue, setSearchValue] = useState("");
 
@@ -39,7 +44,12 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
     // View order sheet state
     const [isOrderOpen, setIsOrderOpen] = useState(false);
 
-    // Local cart (in-memory; replace with server/context later)
+    // Order submission state
+    const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+    const [orderError, setOrderError] = useState<string | null>(null);
+    const [orderSuccess, setOrderSuccess] = useState(false);
+
+    // Local cart
     const [cart, setCart] = useState<CartLine[]>([]);
 
     const availableItems = useMemo(
@@ -48,7 +58,8 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                 if (!item.isAvailable) return false;
 
                 const matchesCategory =
-                    activeCategory === "All" || item.category === activeCategory;
+                    activeCategory === "All" ||
+                    item.category === activeCategory;
 
                 const matchesSearch = item.ProductName.toLowerCase().includes(
                     searchValue.toLowerCase()
@@ -66,7 +77,9 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
         return 0;
     };
 
-    // ---------- Cart helpers ----------
+    // =========================
+    // Cart helpers
+    // =========================
     const handleAddToCart = ({
         item,
         sizeId,
@@ -82,6 +95,7 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
             const existing = prev.find(
                 (l) => l.itemId === item.id && l.sizeId === sizeId
             );
+
             if (existing) {
                 return prev.map((l) =>
                     l.itemId === item.id && l.sizeId === sizeId
@@ -93,8 +107,12 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                         : l
                 );
             }
+
             return [...prev, { itemId: item.id, sizeId, quantity, note }];
         });
+
+        setOrderError(null);
+        setOrderSuccess(false);
     };
 
     const handleChangeQuantity = (
@@ -121,11 +139,39 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
         );
     };
 
-    const handlePlaceOrder = () => {
-        // TODO: replace with a real server action / API call
-        console.log("Placing order:", cart);
-        setCart([]);
-        setIsOrderOpen(false);
+    // =========================
+    // Place order
+    // =========================
+    const handlePlaceOrder = async () => {
+        if (cart.length === 0 || isPlacingOrder) return;
+
+        setIsPlacingOrder(true);
+        setOrderError(null);
+        setOrderSuccess(false);
+
+        try {
+            const result = await PlacingOrderAction(
+                cart,
+                restaurant.id,
+                TABLE_NUMBER
+            );
+
+            if (!result.success) {
+                setOrderError(result.message);
+                return;
+            }
+
+            setCart([]);
+            setOrderSuccess(true);
+            setIsOrderOpen(false);
+
+            setTimeout(() => setOrderSuccess(false), 4000);
+        } catch (error) {
+            console.error("Unexpected order error:", error);
+            setOrderError("Something went wrong. Please try again.");
+        } finally {
+            setIsPlacingOrder(false);
+        }
     };
 
     const cartCount = cart.reduce((sum, l) => sum + l.quantity, 0);
@@ -133,9 +179,11 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
     const cartTotal = cart.reduce((sum, line) => {
         const item = items.find((i) => i.id === line.itemId);
         if (!item) return sum;
+
         const size = line.sizeId
             ? item.sizes.find((s) => s.id === line.sizeId)
             : null;
+
         const price = size?.price ?? item.basePrice ?? 0;
         return sum + price * line.quantity;
     }, 0);
@@ -157,7 +205,7 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                     <div className="flex items-center gap-2 rounded-full border border-hairline bg-surface py-1.5 pl-3 pr-1.5 shadow-soft">
                         <span className="text-xs text-ink-soft">Table</span>
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
-                            12
+                            {TABLE_NUMBER}
                         </span>
                     </div>
                 </div>
@@ -231,8 +279,8 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                                     type="button"
                                     onClick={() => setActiveCategory(category)}
                                     className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition ${isActive
-                                            ? "bg-brand text-white shadow-soft"
-                                            : "border border-hairline bg-surface text-ink-soft shadow-soft hover:text-ink"
+                                        ? "bg-brand text-white shadow-soft"
+                                        : "border border-hairline bg-surface text-ink-soft shadow-soft hover:text-ink"
                                         }`}
                                 >
                                     {category}
@@ -249,7 +297,9 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                             Explore our selection
                         </p>
                         <h3 className="mt-0.5 text-2xl font-bold tracking-tight">
-                            {activeCategory === "All" ? "Full Menu" : activeCategory}
+                            {activeCategory === "All"
+                                ? "Full Menu"
+                                : activeCategory}
                         </h3>
                     </div>
 
@@ -273,7 +323,10 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                                     >
                                         <div className="relative">
                                             <img
-                                                src={item.imageUrl ?? "/placeholder.png"}
+                                                src={
+                                                    item.imageUrl ??
+                                                    "/placeholder.png"
+                                                }
                                                 alt={item.ProductName}
                                                 className="h-44 w-full rounded-2xl object-cover"
                                             />
@@ -288,7 +341,8 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                                                     {item.ProductName}
                                                 </h4>
                                                 <span className="whitespace-nowrap text-sm font-bold text-price">
-                                                    Starts From Rs. {getStartingPrice(item)}
+                                                    Starts From Rs.{" "}
+                                                    {getStartingPrice(item)}
                                                 </span>
                                             </div>
 
@@ -303,7 +357,8 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                                                             key={s.id}
                                                             className="rounded-full bg-surface-tint px-2 py-0.5 text-[10px] font-semibold text-ink-soft"
                                                         >
-                                                            {s.Size} · Rs. {s.price}
+                                                            {s.Size} · Rs.{" "}
+                                                            {s.price}
                                                         </span>
                                                     ))}
                                                 </div>
@@ -342,6 +397,13 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                 </section>
             </div>
 
+            {/* Success toast */}
+            {orderSuccess && (
+                <div className="fixed left-1/2 top-20 z-[80] -translate-x-1/2 rounded-full bg-success-bg px-5 py-3 text-sm font-bold text-success-text shadow-lift">
+                    ✓ Order placed successfully!
+                </div>
+            )}
+
             {/* Cart bar */}
             <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-hairline bg-surface/85 p-3 backdrop-blur-md">
                 <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
@@ -354,7 +416,7 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
                     </div>
                     <button
                         type="button"
-                        disabled={cartCount === 0}
+                        disabled={cartCount === 0 || isPlacingOrder}
                         onClick={() => setIsOrderOpen(true)}
                         className="flex items-center gap-2 rounded-full bg-brand px-6 py-3 text-sm font-bold text-white shadow-soft transition hover:bg-brand-deep disabled:cursor-not-allowed disabled:opacity-50"
                     >
@@ -378,12 +440,18 @@ export default function HomeClient({ items, restaurantSlug, restaurant }: Props)
             {/* View order sheet */}
             <ViewOrderSheet
                 isOpen={isOrderOpen}
-                onClose={() => setIsOrderOpen(false)}
+                onClose={() => {
+                    if (isPlacingOrder) return;
+                    setIsOrderOpen(false);
+                    setOrderError(null);
+                }}
                 items={items}
                 cart={cart}
                 onChangeQuantity={handleChangeQuantity}
                 onRemove={handleRemoveLine}
                 onPlaceOrder={handlePlaceOrder}
+                isPlacingOrder={isPlacingOrder}
+                errorMessage={orderError}
             />
         </main>
     );

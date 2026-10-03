@@ -27,7 +27,6 @@ export default async function RestaurantPage({ params }: Props) {
     return (
         <HomeClient
             items={restaurant.menuItems}
-            restaurantSlug={restaurant.slug}
             restaurant={{
                 id: restaurant.id,
                 name: restaurant.name,

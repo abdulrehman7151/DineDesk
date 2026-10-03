@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { requireRole } from "@/lib/authtoke";
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 
 const stats = [
     {
@@ -27,44 +28,6 @@ const stats = [
         value: "Rs. 1,240",
         change: "-2.3%",
         up: false,
-    },
-];
-
-const recentOrders = [
-    {
-        id: "#1042",
-        table: "Table 12",
-        items: "3 items",
-        total: "Rs. 2,450",
-        status: "Preparing",
-    },
-    {
-        id: "#1041",
-        table: "Table 8",
-        items: "5 items",
-        total: "Rs. 3,120",
-        status: "Served",
-    },
-    {
-        id: "#1040",
-        table: "Table 3",
-        items: "2 items",
-        total: "Rs. 890",
-        status: "Pending",
-    },
-    {
-        id: "#1039",
-        table: "Table 17",
-        items: "4 items",
-        total: "Rs. 2,100",
-        status: "Served",
-    },
-    {
-        id: "#1038",
-        table: "Table 5",
-        items: "6 items",
-        total: "Rs. 4,280",
-        status: "Preparing",
     },
 ];
 
@@ -117,6 +80,19 @@ export default async function AdminDashboard() {
         notFound();
     }
 
+    const recentOrders = await prisma.order.findMany({
+        where: {
+            restaurantId: user.restaurantId,
+        },
+        include: {
+            orderItems: true,
+        },
+        orderBy: {
+            createdAt: "desc",
+        },
+        take: 5,
+    });
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -147,9 +123,7 @@ export default async function AdminDashboard() {
                         </p>
 
                         <p
-                            className={`mt-1 text-xs font-semibold ${s.up
-                                ? "text-success-text"
-                                : "text-brand"
+                            className={`mt-1 text-xs font-semibold ${s.up ? "text-success-text" : "text-brand"
                                 }`}
                         >
                             {s.change} vs yesterday
@@ -193,46 +167,62 @@ export default async function AdminDashboard() {
                         </thead>
 
                         <tbody>
-                            {recentOrders.map((o) => (
-                                <tr
-                                    key={o.id}
-                                    className="border-b border-hairline last:border-0"
-                                >
-                                    <td className="px-6 py-3.5 font-semibold text-ink">
-                                        {o.id}
-                                    </td>
-
-                                    <td className="px-6 py-3.5 text-ink-soft">
-                                        {o.table}
-                                    </td>
-
-                                    <td className="px-6 py-3.5 text-ink-soft">
-                                        {o.items}
-                                    </td>
-
-                                    <td className="px-6 py-3.5 font-bold text-price">
-                                        {o.total}
-                                    </td>
-
-                                    <td className="px-6 py-3.5">
-                                        <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand">
-                                            {o.status}
-                                        </span>
-                                    </td>
-
-                                    <td className="px-6 py-3.5 text-right">
-                                        <Link
-                                            href={`/admin/orders/${o.id.replace(
-                                                "#",
-                                                ""
-                                            )}`}
-                                            className="text-xs font-semibold text-brand hover:text-brand-deep"
-                                        >
-                                            View
-                                        </Link>
+                            {recentOrders.length === 0 ? (
+                                <tr>
+                                    <td
+                                        colSpan={6}
+                                        className="px-6 py-10 text-center text-sm text-ink-soft"
+                                    >
+                                        No orders yet.
                                     </td>
                                 </tr>
-                            ))}
+                            ) : (
+                                recentOrders.map((o) => {
+                                    const itemCount = o.orderItems.reduce(
+                                        (sum, item) => sum + item.quantity,
+                                        0
+                                    );
+
+                                    return (
+                                        <tr
+                                            key={o.id}
+                                            className="border-b border-hairline last:border-0"
+                                        >
+                                            <td className="px-6 py-3.5 font-semibold text-ink">
+                                                #{o.id}
+                                            </td>
+
+                                            <td className="px-6 py-3.5 text-ink-soft">
+                                                {o.tableNumber ?? "—"}
+                                            </td>
+
+                                            <td className="px-6 py-3.5 text-ink-soft">
+                                                {itemCount} item
+                                                {itemCount === 1 ? "" : "s"}
+                                            </td>
+
+                                            <td className="px-6 py-3.5 font-bold text-price">
+                                                Rs. {o.total}
+                                            </td>
+
+                                            <td className="px-6 py-3.5">
+                                                <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand">
+                                                    {o.status}
+                                                </span>
+                                            </td>
+
+                                            <td className="px-6 py-3.5 text-right">
+                                                <Link
+                                                    href={`/admin/orders/${o.id}`}
+                                                    className="text-xs font-semibold text-brand hover:text-brand-deep"
+                                                >
+                                                    View
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
                         </tbody>
                     </table>
                 </div>

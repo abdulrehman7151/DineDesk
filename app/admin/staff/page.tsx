@@ -71,7 +71,6 @@ export default function StaffPage() {
                             <th className="p-3">Name</th>
                             <th className="p-3">Role</th>
                             <th className="p-3">Email</th>
-                            <th className="p-3">Shift</th>
                             <th className="p-3">Status</th>
                             <th className="p-3"></th>
                         </tr>
@@ -82,7 +81,6 @@ export default function StaffPage() {
                                 <td className="p-3 font-medium">{s.name}</td>
                                 <td className="p-3 capitalize">{s.role}</td>
                                 <td className="p-3">{s.email}</td>
-                                <td className="p-3 capitalize">{s.shift ?? "—"}</td>
                                 <td className="p-3">
                                     <span
                                         className={`px-2 py-1 rounded-full text-xs ${s.isActive

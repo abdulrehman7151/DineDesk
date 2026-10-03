@@ -18,17 +18,11 @@ type Props = {
     onChangeQuantity: (itemId: number, sizeId: number | null, delta: number) => void;
     onRemove: (itemId: number, sizeId: number | null) => void;
     onPlaceOrder: () => void;
+    isPlacingOrder: boolean;
+    errorMessage: string | null;
 };
 
-export default function ViewOrderSheet({
-    isOpen,
-    onClose,
-    items,
-    cart,
-    onChangeQuantity,
-    onRemove,
-    onPlaceOrder,
-}: Props) {
+export default function ViewOrderSheet({ isOpen, onClose, items, cart, onChangeQuantity, onRemove, onPlaceOrder, isPlacingOrder, errorMessage }: Props) {
     // Lock body scroll while sheet is open
     useEffect(() => {
         if (!isOpen) return;
@@ -329,16 +323,26 @@ export default function ViewOrderSheet({
                         </div>
 
                         {/* Place order */}
+                        {errorMessage && (
+                            <p
+                                role="alert"
+                                className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+                            >
+                                {errorMessage}
+                            </p>
+                        )}
                         <button
                             type="button"
                             onClick={onPlaceOrder}
+                            disabled={isPlacingOrder}
                             className="
                                 mt-4 flex w-full items-center justify-center gap-2
                                 rounded-full bg-brand py-3.5 text-sm font-bold text-white
                                 shadow-soft transition hover:bg-brand-deep
+                                disabled:cursor-not-allowed disabled:opacity-60
                             "
                         >
-                            Place Order
+                            {isPlacingOrder ? "Placing Order..." : "Place Order"}
                             <svg
                                 className="h-4 w-4"
                                 fill="none"
