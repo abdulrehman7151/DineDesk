@@ -6,13 +6,6 @@ import { prisma } from "@/lib/prisma";
 
 
 
-// const 
-// const Revenue = async () => {
-//     return await prisma.order.findMany({
-
-//     })
-// }
-
 const topSellingItems = [
     {
         name: "Classic Beef Burger",
@@ -85,6 +78,13 @@ export default async function AdminDashboard() {
     const Revenue = filterd.reduce((acc, current) => {
         return acc + current.total;
     }, 0)
+
+    const tables = await prisma.table.findMany({
+        where: {
+            restaurantId: user.restaurantId
+        }
+    });
+    const occupiedTables = tables.filter((i) => i.status === "OCCUPIED")
     const stats = [
         {
             label: "Today's Revenue",
@@ -100,7 +100,7 @@ export default async function AdminDashboard() {
         },
         {
             label: "Active Tables",
-            value: "18 / 24",
+            value: `${occupiedTables.length}/${tables.length}`,
             change: "75%",
             up: true,
         },
