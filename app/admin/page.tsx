@@ -4,32 +4,14 @@ import { requireRole } from "@/lib/authtoke";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
-const stats = [
-    {
-        label: "Today's Revenue",
-        value: "Rs. 84,320",
-        change: "+12.4%",
-        up: true,
-    },
-    {
-        label: "Orders Today",
-        value: "142",
-        change: "+8.1%",
-        up: true,
-    },
-    {
-        label: "Active Tables",
-        value: "18 / 24",
-        change: "75%",
-        up: true,
-    },
-    {
-        label: "Avg. Order Value",
-        value: "Rs. 1,240",
-        change: "-2.3%",
-        up: false,
-    },
-];
+
+
+// const 
+// const Revenue = async () => {
+//     return await prisma.order.findMany({
+
+//     })
+// }
 
 const topSellingItems = [
     {
@@ -92,6 +74,44 @@ export default async function AdminDashboard() {
         },
         take: 5,
     });
+
+    const orders = await prisma.order.findMany({
+        where: {
+            restaurantId: user.restaurantId,
+        }
+    });
+    const filterd = orders.filter((i) => i.status === "SERVED")
+
+    const Revenue = filterd.reduce((acc, current) => {
+        return acc + current.total;
+    }, 0)
+    const stats = [
+        {
+            label: "Today's Revenue",
+            value: `${Revenue}`,
+            change: "+12.4%",
+            up: true,
+        },
+        {
+            label: "Orders Today",
+            value: `${orders.length}`,
+            change: "+8.1%",
+            up: true,
+        },
+        {
+            label: "Active Tables",
+            value: "18 / 24",
+            change: "75%",
+            up: true,
+        },
+        {
+            label: "Avg. Order Value",
+            value: "Rs. 1,240",
+            change: "-2.3%",
+            up: false,
+        },
+    ];
+
 
     return (
         <div className="space-y-6">
