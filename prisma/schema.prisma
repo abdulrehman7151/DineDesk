@@ -38,6 +38,7 @@ model RestaurantUser {
   id           Int        @id @default(autoincrement())
   userId       Int
   restaurantId Int
+  isActive     Boolean    @default(true)
   role         String     @default("chef")
   user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
