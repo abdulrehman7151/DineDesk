@@ -107,6 +107,7 @@ model OrderItem {
   order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   productName String
+  description String?
 
   menuItemId     Int?
   menuItem       MenuItem?     @relation(fields: [menuItemId], references: [id], onDelete: SetNull)

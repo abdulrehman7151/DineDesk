@@ -12,7 +12,7 @@ type OrderItem = {
 };
 
 type Order = {
-    id: string;
+    id: number;
     total: number;
     createdAt: string; // ISO
     orderItems: OrderItem[];

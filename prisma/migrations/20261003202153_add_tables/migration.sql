@@ -7,9 +7,6 @@
 -- AlterTable
 ALTER TABLE `Order` ADD COLUMN `tableId` INTEGER NULL;
 
--- AlterTable
-ALTER TABLE `OrderItem` DROP COLUMN `description`;
-
 -- CreateTable
 CREATE TABLE `Table` (
     `id` INTEGER NOT NULL AUTO_INCREMENT,

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { updateOrderStatus } from "./actions";
 
 type OrderStatus = "PENDING" | "PREPARING" | "READY";
+type NextOrderStatus = "PREPARING" | "READY" | "SERVED";
 
 type KitchenOrder = {
     id: number;
@@ -64,7 +65,10 @@ export default function KitchenClient({
     const filtered = initialOrders.filter((o) => o.status === filter);
 
     // Called when chef clicks a button
-    async function handleButtonClick(orderId: number, nextStatus: string) {
+    async function handleButtonClick(
+        orderId: number,
+        nextStatus: NextOrderStatus
+    ) {
         setLoadingId(orderId);
 
         try {

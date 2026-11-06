@@ -5,4 +5,8 @@
 
 */
 -- AlterTable
+UPDATE `Restaurant`
+SET `slug` = CONCAT('restaurant-', `id`)
+WHERE `slug` IS NULL;
+
 ALTER TABLE `Restaurant` MODIFY `slug` VARCHAR(191) NOT NULL;

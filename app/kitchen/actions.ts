@@ -6,13 +6,23 @@ import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
 
-export async function updateOrderStatus(orderId: number, newStatus: string) {
+type UpdatableOrderStatus = "PENDING" | "PREPARING" | "READY" | "SERVED";
+
+export async function updateOrderStatus(
+    orderId: number,
+    newStatus: UpdatableOrderStatus
+) {
     // 1. Check user is logged in
     const user = await getUserFromToken();
     if (!user) redirect("/signin");
 
     // 2. Only allow these statuses
-    const allowed = ["PENDING", "PREPARING", "READY", "SERVED"];
+    const allowed: UpdatableOrderStatus[] = [
+        "PENDING",
+        "PREPARING",
+        "READY",
+        "SERVED",
+    ];
     if (!allowed.includes(newStatus)) {
         throw new Error("Invalid status");
     }
