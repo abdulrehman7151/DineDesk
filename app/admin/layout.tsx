@@ -10,7 +10,6 @@ const navItems = [
     { href: "/admin/menu", label: "Menu", icon: "M4 6h16M4 12h16M4 18h10" },
     { href: "/admin/tables", label: "Tables", icon: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" },
     { href: "/admin/orders", label: "Orders", icon: "M6 2l1.5 3h9L18 2M6 5v15a2 2 0 002 2h8a2 2 0 002-2V5" },
-    { href: "/admin/inventory", label: "Inventory", icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-14L4 7m8 4v10M4 7v10l8 4" },
     { href: "/admin/sales", label: "Sales", icon: "M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" },
     { href: "/admin/analytics", label: "Analytics", icon: "M3 3v18h18M7 16l4-4 3 3 5-6" },
     { href: "/admin/kitchen", label: "Kitchen", icon: "M4 3v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V3M7 13v8M17 13v8M4 7h16M12 3v4" },
