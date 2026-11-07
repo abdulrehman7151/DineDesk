@@ -1,6 +1,7 @@
 "use client";
 
 import React, {
+    startTransition,
     useActionState,
     useState,
     useEffect,
@@ -97,11 +98,7 @@ type MenuItemFormProps = {
 // COMPONENT
 // =========================
 
-export default function MenuItemForm({
-    mode,
-    item = null,
-    action,
-}: MenuItemFormProps) {
+export default function MenuItemForm({ mode, item = null, action }: MenuItemFormProps) {
 
     const isEdit = mode === "edit";
 
@@ -139,22 +136,14 @@ export default function MenuItemForm({
     );
 
 
-    const [
-        state,
-        formAction,
-        isPending,
-    ] = useActionState(
-        action,
-        initialState
-    );
+    const [state, formAction, isPending,] = useActionState(action, initialState);
 
 
     // Image preview state
-    const [imagePreview, setImagePreview] = useState<string | null>(
-        isEdit ? item?.imageUrl ?? null : null
-    );
+    const [imagePreview, setImagePreview] = useState<string | null>(isEdit ? item?.imageUrl ?? null : null);
     const [imageName, setImageName] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const formRef = useRef<HTMLFormElement>(null);
 
 
     // Cleanup preview URL on unmount
@@ -167,13 +156,32 @@ export default function MenuItemForm({
         };
     }, [imagePreview]);
     useEffect(() => {
-        if (state.success && isEdit) {
+        if (!state.success) return;
+
+        if (isEdit) {
             const t = setTimeout(() => {
                 router.push("/admin/menu");
             }, 1200);
             return () => clearTimeout(t);
         }
-    }, [state.success, isEdit, router]);
+
+        // Add mode: clear the leftover UI state after a short delay
+        const t = setTimeout(() => {
+            formRef.current?.reset();
+            setImagePreview(null);
+            setImageName(null);
+
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+
+            // reset sizes / toggle
+            setHasSizes(false);
+            setSizes([]);
+        }, 1200);
+
+        return () => clearTimeout(t);
+    }, [state, isEdit, router]);
 
     // Handle file selection
     const handleImageChange = (
@@ -251,7 +259,6 @@ export default function MenuItemForm({
         setSizes(QUICK_TEMPLATES[templateKey]);
     };
 
-
     return (
 
         <div className="space-y-6 max-w-4xl mx-auto">
@@ -309,8 +316,15 @@ export default function MenuItemForm({
             <div className="rounded-card border border-hairline bg-surface p-6 shadow-soft sm:p-8">
 
                 <form
+                    ref={formRef}
                     className="space-y-8"
-                    action={formAction}
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        const formData = new FormData(event.currentTarget);
+                        startTransition(() => {
+                            formAction(formData);
+                        });
+                    }}
                 >
 
                     {/* Hidden id (for edit mode) */}
