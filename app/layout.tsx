@@ -6,8 +6,9 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "DineDesk",
-  description: "Order directly from your table",
+  title: "DineDesk | Restaurant management, made simple",
+  description:
+    "Manage your restaurant menu, tables, QR orders, kitchen workflow, staff, and sales in one simple workspace.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
