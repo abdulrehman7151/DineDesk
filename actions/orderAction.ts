@@ -47,6 +47,7 @@ export const PlacingOrderAction = async (
         // Refresh admin/kitchen views so the new order shows up immediately
         revalidatePath("/admin/orders");
         revalidatePath("/admin/kitchen");
+        revalidatePath("/kitchen");
 
         return {
             success: true,

@@ -1,7 +1,7 @@
 // app/kitchen/KitchenClient.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateOrderStatus } from "./actions";
 
@@ -53,6 +53,14 @@ export default function KitchenClient({
     const router = useRouter();
     const [filter, setFilter] = useState<OrderStatus>("PENDING");
     const [loadingId, setLoadingId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            router.refresh();
+        }, 10_000);
+
+        return () => window.clearInterval(interval);
+    }, [router]);
 
     // Count orders in each status
     const counts = {
