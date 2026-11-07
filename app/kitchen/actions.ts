@@ -8,10 +8,7 @@ import { prisma } from "@/lib/prisma";
 
 type UpdatableOrderStatus = "PENDING" | "PREPARING" | "READY" | "SERVED";
 
-export async function updateOrderStatus(
-    orderId: number,
-    newStatus: UpdatableOrderStatus
-) {
+export async function updateOrderStatus(orderId: number, newStatus: UpdatableOrderStatus) {
     // 1. Check user is logged in
     const user = await getUserFromToken();
     if (!user) redirect("/signin");
@@ -58,4 +55,5 @@ export async function updateOrderStatus(
 
     // 7. Refresh the kitchen page so new data loads
     revalidatePath("/kitchen");
+    revalidatePath("/admin/kitchen");
 }
