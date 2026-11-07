@@ -4,31 +4,6 @@ import { requireRole } from "@/lib/authtoke";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
-
-
-const topSellingItems = [
-    {
-        name: "Classic Beef Burger",
-        sold: 142,
-        pct: 92,
-    },
-    {
-        name: "Pepperoni Pizza",
-        sold: 118,
-        pct: 76,
-    },
-    {
-        name: "Chicken Alfredo",
-        sold: 96,
-        pct: 62,
-    },
-    {
-        name: "Margherita Pizza",
-        sold: 74,
-        pct: 48,
-    },
-];
-
 const quickActions = [
     {
         label: "Add Menu Item",
@@ -55,6 +30,11 @@ export default async function AdminDashboard() {
         notFound();
     }
 
+    const now = new Date();
+    const topSellingStart = new Date(now);
+    topSellingStart.setDate(topSellingStart.getDate() - 6);
+    topSellingStart.setHours(0, 0, 0, 0);
+
     const recentOrders = await prisma.order.findMany({
         where: {
             restaurantId: user.restaurantId,
@@ -67,6 +47,41 @@ export default async function AdminDashboard() {
         },
         take: 5,
     });
+
+    const servedOrders = await prisma.order.findMany({
+        where: {
+            restaurantId: user.restaurantId,
+            status: "SERVED",
+            createdAt: {
+                gte: topSellingStart,
+                lte: now,
+            },
+        },
+        select: {
+            orderItems: {
+                select: {
+                    productName: true,
+                    quantity: true,
+                },
+            },
+        },
+    });
+
+    const soldByProduct = new Map<string, number>();
+    for (const order of servedOrders) {
+        for (const item of order.orderItems) {
+            soldByProduct.set(
+                item.productName,
+                (soldByProduct.get(item.productName) ?? 0) + item.quantity
+            );
+        }
+    }
+
+    const topSellingItems = [...soldByProduct.entries()]
+        .map(([name, sold]) => ({ name, sold }))
+        .sort((a, b) => b.sold - a.sold || a.name.localeCompare(b.name))
+        .slice(0, 4);
+    const highestQuantity = topSellingItems[0]?.sold ?? 0;
 
     const orders = await prisma.order.findMany({
         where: {
@@ -256,7 +271,11 @@ export default async function AdminDashboard() {
                     </p>
 
                     <div className="mt-4 space-y-3">
-                        {topSellingItems.map((item) => (
+                        {topSellingItems.length === 0 ? (
+                            <p className="py-4 text-sm text-ink-soft">
+                                No completed sales in the last 7 days.
+                            </p>
+                        ) : topSellingItems.map((item) => (
                             <div key={item.name}>
                                 <div className="flex items-center justify-between text-sm">
                                     <span className="font-semibold text-ink">
@@ -272,7 +291,7 @@ export default async function AdminDashboard() {
                                     <div
                                         className="h-full rounded-full bg-brand"
                                         style={{
-                                            width: `${item.pct}%`,
+                                            width: `${Math.round((item.sold / highestQuantity) * 100)}%`,
                                         }}
                                     />
                                 </div>
