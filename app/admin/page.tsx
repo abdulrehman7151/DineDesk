@@ -73,6 +73,8 @@ export default async function AdminDashboard() {
             restaurantId: user.restaurantId,
         }
     });
+
+
     const filterd = orders.filter((i) => i.status === "SERVED")
 
     const Revenue = filterd.reduce((acc, current) => {
@@ -88,7 +90,7 @@ export default async function AdminDashboard() {
     const stats = [
         {
             label: "Today's Revenue",
-            value: `${Revenue}`,
+            value: `Rs. ${Revenue}`,
             change: "+12.4%",
             up: true,
         },
@@ -106,7 +108,7 @@ export default async function AdminDashboard() {
         },
         {
             label: "Avg. Order Value",
-            value: "Rs. 1,240",
+            value: `Rs. ${Revenue / orders.length}`,
             change: "-2.3%",
             up: false,
         },
@@ -231,14 +233,7 @@ export default async function AdminDashboard() {
                                                 </span>
                                             </td>
 
-                                            <td className="px-6 py-3.5 text-right">
-                                                <Link
-                                                    href={`/admin/orders/${o.id}`}
-                                                    className="text-xs font-semibold text-brand hover:text-brand-deep"
-                                                >
-                                                    View
-                                                </Link>
-                                            </td>
+
                                         </tr>
                                     );
                                 })

@@ -62,13 +62,13 @@ export default function AdminAnalyticsLoading() {
                                 <div
                                     className="w-1/2 animate-pulse rounded-t-lg bg-surface-warm"
                                     style={{
-                                        height: `${40 + Math.random() * 50}%`,
+                                        height: `${40 + ((i * 17) % 50)}%`,
                                     }}
                                 />
                                 <div
                                     className="w-1/2 animate-pulse rounded-t-lg bg-surface-warm/60"
                                     style={{
-                                        height: `${30 + Math.random() * 40}%`,
+                                        height: `${30 + ((i * 13) % 40)}%`,
                                     }}
                                 />
                             </div>
@@ -127,28 +127,6 @@ export default function AdminAnalyticsLoading() {
                             </div>
                         ))}
                     </div>
-                </div>
-            </div>
-
-            {/* Order Types */}
-            <div className="rounded-card border border-hairline bg-surface p-6 shadow-soft">
-                <div className="mb-5">
-                    <div className="h-4 w-28 animate-pulse rounded bg-surface-warm" />
-                    <div className="mt-2 h-3 w-40 animate-pulse rounded bg-surface-warm" />
-                </div>
-
-                <div className="grid gap-6 sm:grid-cols-3">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                        <div
-                            key={i}
-                            className="rounded-xl border border-hairline bg-surface-tint p-5"
-                        >
-                            <div className="h-3 w-16 animate-pulse rounded bg-surface-warm" />
-                            <div className="mt-3 h-9 w-20 animate-pulse rounded bg-surface-warm" />
-                            <div className="mt-2 h-3 w-20 animate-pulse rounded bg-surface-warm" />
-                            <div className="mt-3 h-1.5 animate-pulse rounded-full bg-surface-warm" />
-                        </div>
-                    ))}
                 </div>
             </div>
 
