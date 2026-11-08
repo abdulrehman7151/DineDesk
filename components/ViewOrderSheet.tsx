@@ -20,9 +20,10 @@ type Props = {
     onPlaceOrder: () => void;
     isPlacingOrder: boolean;
     errorMessage: string | null;
+    tableNumber: number | null;
 };
 
-export default function ViewOrderSheet({ isOpen, onClose, items, cart, onChangeQuantity, onRemove, onPlaceOrder, isPlacingOrder, errorMessage }: Props) {
+export default function ViewOrderSheet({ isOpen, onClose, items, cart, onChangeQuantity, onRemove, onPlaceOrder, isPlacingOrder, errorMessage, tableNumber }: Props) {
     // Lock body scroll while sheet is open
     useEffect(() => {
         if (!isOpen) return;
@@ -126,6 +127,11 @@ export default function ViewOrderSheet({ isOpen, onClose, items, cart, onChangeQ
                         </h2>
                         <p className="text-xs text-ink-soft">
                             {totalItems} item{totalItems === 1 ? "" : "s"}
+                        </p>
+                        <p className="text-xs text-ink-muted">
+                            {tableNumber === null
+                                ? "Scan a table QR code to place this order."
+                                : `Ordering for Table ${tableNumber}`}
                         </p>
                     </div>
 
@@ -334,7 +340,7 @@ export default function ViewOrderSheet({ isOpen, onClose, items, cart, onChangeQ
                         <button
                             type="button"
                             onClick={onPlaceOrder}
-                            disabled={isPlacingOrder}
+                            disabled={isPlacingOrder || tableNumber === null}
                             className="
                                 mt-4 flex w-full items-center justify-center gap-2
                                 rounded-full bg-brand py-3.5 text-sm font-bold text-white

@@ -10,6 +10,7 @@ type CartLine = {
 export const PlacingOrderServices = async (
     cart: CartLine[],
     restaurantId: number,
+    tableId: number,
     tableNumber: number
 ) => {
     // =========================
@@ -23,6 +24,10 @@ export const PlacingOrderServices = async (
         throw new Error("Invalid restaurant.");
     }
 
+    if (!Number.isSafeInteger(tableId) || tableId <= 0) {
+        throw new Error("Invalid table.");
+    }
+
     if (!Number.isInteger(tableNumber) || tableNumber <= 0) {
         throw new Error("Invalid table number.");
     }
@@ -34,6 +39,7 @@ export const PlacingOrderServices = async (
         const order = await tx.order.create({
             data: {
                 restaurantId,
+                tableId,
                 tableNumber,
                 status: "PENDING",
             },

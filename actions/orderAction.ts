@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { PlacingOrderServices } from "@/services/OrderServices";
+import { prisma } from "@/lib/prisma";
 
 type CartLine = {
     itemId: number;
@@ -16,8 +17,8 @@ type PlaceOrderResult =
 
 export const PlacingOrderAction = async (
     cart: CartLine[],
-    restaurantId: number,
-    tableNumber: number
+    restaurantSlug: string,
+    tableId: number
 ): Promise<PlaceOrderResult> => {
     // =========================
     // Basic guardrails
@@ -26,22 +27,53 @@ export const PlacingOrderAction = async (
         return { success: false, message: "Your order is empty." };
     }
 
-    if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
+    if (typeof restaurantSlug !== "string" || restaurantSlug.length === 0) {
         return { success: false, message: "Invalid restaurant." };
     }
 
-    if (!Number.isInteger(tableNumber) || tableNumber <= 0) {
-        return { success: false, message: "Invalid table number." };
+    if (!Number.isSafeInteger(tableId) || tableId <= 0) {
+        return {
+            success: false,
+            message: "Scan the QR code at your table to place an order.",
+        };
     }
 
     // =========================
     // Place order
     // =========================
     try {
+        const restaurant = await prisma.restaurant.findUnique({
+            where: { slug: restaurantSlug },
+            select: { id: true },
+        });
+
+        if (!restaurant) {
+            return { success: false, message: "Invalid restaurant." };
+        }
+
+        const table = await prisma.table.findFirst({
+            where: {
+                id: tableId,
+                restaurantId: restaurant.id,
+            },
+            select: {
+                id: true,
+                number: true,
+            },
+        });
+
+        if (!table) {
+            return {
+                success: false,
+                message: "This table QR code is no longer valid.",
+            };
+        }
+
         const order = await PlacingOrderServices(
             cart,
-            restaurantId,
-            tableNumber
+            restaurant.id,
+            table.id,
+            table.number
         );
 
         // Refresh admin/kitchen views so the new order shows up immediately
