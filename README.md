@@ -18,6 +18,16 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Password reset email
+
+Configure these server environment variables to enable password reset emails:
+
+- `RESEND_API_KEY` — API key for the Resend account that sends email.
+- `EMAIL_FROM` — verified sender address, for example `DineDesk <no-reply@example.com>`.
+- `NEXT_PUBLIC_APP_URL` — canonical app origin for reset links, such as `http://localhost:3000` in development or your HTTPS production URL.
+
+Reset links expire after 15 minutes and can only be used once.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

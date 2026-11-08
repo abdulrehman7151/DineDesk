@@ -145,3 +145,13 @@ enum TableStatus {
   OCCUPIED
   RESERVED
 }
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  email     String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
