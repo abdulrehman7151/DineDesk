@@ -5,10 +5,12 @@ import HomeClient from "@/app/Homeclinet";
 
 type Props = {
     params: Promise<{ restaurantSlug: string }>;
+    searchParams: Promise<{ tableId?: string | string[] }>;
 };
 
-export default async function RestaurantPage({ params }: Props) {
+export default async function RestaurantPage({ params, searchParams }: Props) {
     const { restaurantSlug } = await params;
+    const { tableId: tableIdParam } = await searchParams;
 
     const restaurant = await prisma.restaurant.findUnique({
         where: { slug: restaurantSlug },
@@ -24,6 +26,23 @@ export default async function RestaurantPage({ params }: Props) {
         notFound();
     }
 
+    const parsedTableId =
+        typeof tableIdParam === "string" && /^\d+$/.test(tableIdParam)
+            ? Number(tableIdParam)
+            : null;
+    const table =
+        parsedTableId !== null &&
+        Number.isSafeInteger(parsedTableId) &&
+        parsedTableId > 0
+            ? await prisma.table.findFirst({
+                  where: {
+                      id: parsedTableId,
+                      restaurantId: restaurant.id,
+                  },
+                  select: { id: true, number: true },
+              })
+            : null;
+
     return (
         <HomeClient
             items={restaurant.menuItems}
@@ -35,6 +54,8 @@ export default async function RestaurantPage({ params }: Props) {
                 address: restaurant.address,
                 phone: restaurant.phone,
             }}
+            tableId={table?.id ?? null}
+            tableNumber={table?.number ?? null}
         />
     );
 }

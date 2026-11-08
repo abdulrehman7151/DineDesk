@@ -6,11 +6,6 @@ import type { MenuItem, Restaurant } from "@/types/menu";
 import ItemDetailModal from "@/components/ItemDetailModal";
 import ViewOrderSheet from "@/components/ViewOrderSheet";
 
-// =========================
-// Hardcoded table number
-// =========================
-const TABLE_NUMBER = 12;
-
 type CartLine = {
     itemId: number;
     sizeId: number | null;
@@ -21,6 +16,8 @@ type CartLine = {
 type Props = {
     items: MenuItem[];
     restaurant: Restaurant;
+    tableId: number | null;
+    tableNumber: number | null;
 };
 
 const categories = [
@@ -34,7 +31,12 @@ const categories = [
     "Desserts",
 ];
 
-export default function HomeClient({ items, restaurant }: Props) {
+export default function HomeClient({
+    items,
+    restaurant,
+    tableId,
+    tableNumber,
+}: Props) {
     const [activeCategory, setActiveCategory] = useState("All");
     const [searchValue, setSearchValue] = useState("");
 
@@ -144,6 +146,10 @@ export default function HomeClient({ items, restaurant }: Props) {
     // =========================
     const handlePlaceOrder = async () => {
         if (cart.length === 0 || isPlacingOrder) return;
+        if (tableId === null) {
+            setOrderError("Scan the QR code at your table to place an order.");
+            return;
+        }
 
         setIsPlacingOrder(true);
         setOrderError(null);
@@ -152,8 +158,8 @@ export default function HomeClient({ items, restaurant }: Props) {
         try {
             const result = await PlacingOrderAction(
                 cart,
-                restaurant.id,
-                TABLE_NUMBER
+                restaurant.slug,
+                tableId
             );
 
             if (!result.success) {
@@ -204,8 +210,8 @@ export default function HomeClient({ items, restaurant }: Props) {
 
                     <div className="flex items-center gap-2 rounded-full border border-hairline bg-surface py-1.5 pl-3 pr-1.5 shadow-soft">
                         <span className="text-xs text-ink-soft">Table</span>
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
-                            {TABLE_NUMBER}
+                        <span className="flex min-h-7 min-w-7 items-center justify-center rounded-full bg-brand px-2 text-xs font-bold text-white">
+                            {tableNumber ?? "—"}
                         </span>
                     </div>
                 </div>
@@ -452,6 +458,7 @@ export default function HomeClient({ items, restaurant }: Props) {
                 onPlaceOrder={handlePlaceOrder}
                 isPlacingOrder={isPlacingOrder}
                 errorMessage={orderError}
+                tableNumber={tableNumber}
             />
         </main>
     );
