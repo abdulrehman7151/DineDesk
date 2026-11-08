@@ -1,4 +1,4 @@
-export default function HomeLoading() {
+export default function RestaurantMenuLoading() {
     return (
         <main className="min-h-screen bg-surface text-ink">
             {/* Header skeleton */}

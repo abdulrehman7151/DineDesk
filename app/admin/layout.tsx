@@ -3,6 +3,7 @@ import React from "react";
 import Link from "next/link";
 import { getUserFromToken } from "@/lib/authtoke";
 import ProfileDropdown from "@/components/ProfileDropdown";
+import MobileAdminNav from "@/components/MobileAdminNav";
 import { prisma } from "@/lib/prisma";
 
 const navItems = [
@@ -87,6 +88,7 @@ export default async function AdminLayout({
                 <header className="sticky top-0 z-40 border-b border-hairline bg-surface/85 backdrop-blur-md">
                     <div className="flex items-center justify-between px-5 py-3.5 lg:px-8">
                         <div className="flex items-center gap-3 lg:hidden">
+                            <MobileAdminNav items={navItems} />
                             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-xs font-bold text-white">
                                 D
                             </span>
