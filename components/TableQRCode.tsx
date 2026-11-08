@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
 type Props = {
-    tableId: number;
+    tableId: string;
     tableNumber: number;
     restaurantSlug: string;
     onClose: () => void;
@@ -22,11 +22,13 @@ export default function TableQRCode({
     useEffect(() => {
         async function generateQR() {
             try {
-                const url =
-                    `${window.location.origin}` +
-                    `/r/${restaurantSlug}?tableId=${tableId}`;
+                const url = new URL(
+                    `/r/${restaurantSlug}`,
+                    window.location.origin
+                );
+                url.searchParams.set("tableId", tableId);
 
-                const qr = await QRCode.toDataURL(url, {
+                const qr = await QRCode.toDataURL(url.toString(), {
                     width: 400,
                     margin: 2,
                 });

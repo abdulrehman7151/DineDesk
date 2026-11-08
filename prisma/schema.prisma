@@ -123,10 +123,11 @@ model OrderItem {
 }
 
 model Table {
-  id     Int         @id @default(autoincrement())
-  number Int
-  seats  Int
-  status TableStatus @default(AVAILABLE)
+  id      Int         @id @default(autoincrement())
+  qrToken String      @unique @db.VarChar(32)
+  number  Int
+  seats   Int
+  status  TableStatus @default(AVAILABLE)
 
   restaurantId Int
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
