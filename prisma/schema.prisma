@@ -17,19 +17,20 @@ model User {
 }
 
 model Restaurant {
-  id        Int              @id @default(autoincrement())
-  name      String
-  slug      String           @unique
-  city      String
-  address   String
-  phone     String
-  createdAt DateTime         @default(now())
-  ownerId   Int
-  owner     User             @relation("RestaurantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
-  users     RestaurantUser[]
-  menuItems MenuItem[]
-  tables    Table[]
-  orders    Order[] // ← add this
+  id            Int              @id @default(autoincrement())
+  name          String
+  slug          String           @unique
+  city          String
+  address       String
+  phone         String
+  createdAt     DateTime         @default(now())
+  ownerId       Int
+  owner         User             @relation("RestaurantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  users         RestaurantUser[]
+  menuItems     MenuItem[]
+  tables        Table[]
+  orders        Order[] // ← add this
+  subscriptions Subscription[]
 
   @@index([ownerId], map: "Restaurant_ownerId_fkey")
 }
@@ -155,4 +156,92 @@ model PasswordResetToken {
   createdAt DateTime @default(now())
 
   @@index([email])
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+model SubscriptionPlan {
+  id            Int      @id @default(autoincrement())
+  name          String
+  productId     String   @unique
+  price         Int
+  currency      String   @default("PKR") @db.VarChar(3)
+  interval      String   @default("Month")
+  intervalCount Int      @default(1)
+  trialDays     Int      @default(0)
+  safepayPlanId String   @unique
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id Int @id @default(autoincrement())
+
+  restaurantId Int
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  planId Int
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id])
+
+  safepaySubscriptionId String?            @unique
+  status                SubscriptionStatus @default(PENDING)
+
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean   @default(false)
+  cancelledAt        DateTime?
+
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, status])
+  @@index([planId])
+}
+
+model Payment {
+  id Int @id @default(autoincrement())
+
+  subscriptionId Int
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  safepayTransactionId String?       @unique
+  amount               Int
+  currency             String        @default("PKR") @db.VarChar(3)
+  status               PaymentStatus @default(PENDING)
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([subscriptionId])
+  @@index([status])
+}
+
+model WebhookEvent {
+  id          Int       @id @default(autoincrement())
+  eventId     String    @unique
+  eventType   String
+  payload     Json
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([processed])
 }
