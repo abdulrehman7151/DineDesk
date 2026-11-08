@@ -128,6 +128,7 @@ export default async function AdminTables() {
                         {/* Buttons — now handled by client component */}
                         <TableCardActions
                             tableId={table.id}
+                            tableQrId={table.qrToken}
                             tableNumber={table.number}
                             tableSeats={table.seats}
                             restaurantSlug={restaurant.slug}

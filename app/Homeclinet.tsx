@@ -16,7 +16,7 @@ type CartLine = {
 type Props = {
     items: MenuItem[];
     restaurant: Restaurant;
-    tableId: number | null;
+    tableId: string | null;
     tableNumber: number | null;
 };
 

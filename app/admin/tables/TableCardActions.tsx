@@ -6,6 +6,7 @@ import ManageTableModal from "./ManageTableModal";
 
 type Props = {
     tableId: number;
+    tableQrId: string;
     tableNumber: number;
     tableSeats: number;
     restaurantSlug: string;
@@ -13,6 +14,7 @@ type Props = {
 
 export default function TableCardActions({
     tableId,
+    tableQrId,
     tableNumber,
     tableSeats,
     restaurantSlug,
@@ -42,7 +44,7 @@ export default function TableCardActions({
 
             {isQrOpen && (
                 <TableQRCode
-                    tableId={tableId}
+                    tableId={tableQrId}
                     tableNumber={tableNumber}
                     restaurantSlug={restaurantSlug}
                     onClose={() => setIsQrOpen(false)}

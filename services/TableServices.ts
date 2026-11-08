@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 
 type CreateTableData = {
@@ -9,6 +10,7 @@ type CreateTableData = {
 export async function createTable(data: CreateTableData) {
     const table = await prisma.table.create({
         data: {
+            qrToken: randomBytes(16).toString("hex"),
             number: data.number,
             seats: data.seats,
             restaurantId: data.restaurantId,

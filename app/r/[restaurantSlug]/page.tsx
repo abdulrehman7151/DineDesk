@@ -26,22 +26,19 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
         notFound();
     }
 
-    const parsedTableId =
-        typeof tableIdParam === "string" && /^\d+$/.test(tableIdParam)
-            ? Number(tableIdParam)
+    const tableQrId =
+        typeof tableIdParam === "string" && /^[a-f0-9]{32}$/i.test(tableIdParam)
+            ? tableIdParam.toLowerCase()
             : null;
-    const table =
-        parsedTableId !== null &&
-        Number.isSafeInteger(parsedTableId) &&
-        parsedTableId > 0
-            ? await prisma.table.findFirst({
+    const table = tableQrId
+        ? await prisma.table.findFirst({
                   where: {
-                      id: parsedTableId,
+                      qrToken: tableQrId,
                       restaurantId: restaurant.id,
                   },
-                  select: { id: true, number: true },
+                  select: { id: true, number: true, qrToken: true },
               })
-            : null;
+        : null;
 
     return (
         <HomeClient
@@ -54,7 +51,7 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
                 address: restaurant.address,
                 phone: restaurant.phone,
             }}
-            tableId={table?.id ?? null}
+            tableId={table?.qrToken ?? null}
             tableNumber={table?.number ?? null}
         />
     );

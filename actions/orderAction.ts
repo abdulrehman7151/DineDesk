@@ -18,7 +18,7 @@ type PlaceOrderResult =
 export const PlacingOrderAction = async (
     cart: CartLine[],
     restaurantSlug: string,
-    tableId: number
+    tableId: string
 ): Promise<PlaceOrderResult> => {
     // =========================
     // Basic guardrails
@@ -31,7 +31,7 @@ export const PlacingOrderAction = async (
         return { success: false, message: "Invalid restaurant." };
     }
 
-    if (!Number.isSafeInteger(tableId) || tableId <= 0) {
+    if (typeof tableId !== "string" || !/^[a-f0-9]{32}$/i.test(tableId)) {
         return {
             success: false,
             message: "Scan the QR code at your table to place an order.",
@@ -53,7 +53,7 @@ export const PlacingOrderAction = async (
 
         const table = await prisma.table.findFirst({
             where: {
-                id: tableId,
+                qrToken: tableId.toLowerCase(),
                 restaurantId: restaurant.id,
             },
             select: {
