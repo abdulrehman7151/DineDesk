@@ -2,7 +2,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getUserFromToken } from "@/lib/authtoke";
+import { getActiveStaff } from "@/lib/staffAuth";
 import {
     createStaffMember,
     getStaffByRestaurant,
@@ -12,14 +12,19 @@ import type { StaffRole } from "@/types/staffKitchen";
 
 const ALLOWED_ROLES: StaffRole[] = ["chef", "waiter", "manager", "cashier"];
 
+const NOT_ALLOWED = {
+    success: false as const,
+    message: "Only the restaurant admin can manage staff.",
+};
+
 export async function addStaffAction(data: {
     name: string;
     email: string;
     role: StaffRole;
     password: string;
 }) {
-    const user = await getUserFromToken();
-    if (!user) return { success: false as const, message: "Unauthorized" };
+    const user = await getActiveStaff();
+    if (!user || user.role !== "admin") return NOT_ALLOWED;
 
     // ---- validation ----
     if (!data.name?.trim() || data.name.trim().length < 2) {
@@ -79,8 +84,8 @@ export async function addStaffAction(data: {
 }
 
 export async function toggleStaffAction(id: number, isActive: boolean) {
-    const user = await getUserFromToken();
-    if (!user) return { success: false as const, message: "Unauthorized" };
+    const user = await getActiveStaff();
+    if (!user || user.role !== "admin") return NOT_ALLOWED;
 
     try {
         await setStaffActive(id, user.restaurantId, isActive);
@@ -94,8 +99,8 @@ export async function toggleStaffAction(id: number, isActive: boolean) {
 
 /** Optional: server-side fetch used by the page. */
 export async function listStaffAction() {
-    const user = await getUserFromToken();
-    if (!user) return [];
+    const user = await getActiveStaff();
+    if (!user || user.role !== "admin") return [];
 
     const rows = await getStaffByRestaurant(user.restaurantId);
 

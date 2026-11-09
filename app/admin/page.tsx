@@ -102,7 +102,7 @@ export default async function AdminDashboard() {
         }
     });
     const occupiedTables = tables.filter((i) => i.status === "OCCUPIED")
-    const stats = [
+        const stats = [
         {
             label: "Today's Revenue",
             value: `Rs. ${Revenue}`,
@@ -159,12 +159,7 @@ export default async function AdminDashboard() {
                             {s.value}
                         </p>
 
-                        <p
-                            className={`mt-1 text-xs font-semibold ${s.up ? "text-success-text" : "text-brand"
-                                }`}
-                        >
-                            {s.change} vs yesterday
-                        </p>
+
                     </div>
                 ))}
             </div>

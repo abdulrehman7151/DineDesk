@@ -42,5 +42,5 @@ export default async function AdminKitchenPage() {
         })),
     }));
 
-    return <KitchenClient initialOrders={serialized} />;
+      return <KitchenClient initialOrders={serialized} role="admin" />;
 }

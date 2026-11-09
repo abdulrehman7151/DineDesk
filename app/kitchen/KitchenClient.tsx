@@ -4,9 +4,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateOrderStatus } from "./actions";
+import { logout } from "@/actions/signout";
+import { canSetStatus, type UpdatableOrderStatus } from "@/lib/orderPermissions";
 
 type OrderStatus = "PENDING" | "PREPARING" | "READY";
-type NextOrderStatus = "PREPARING" | "READY" | "SERVED";
 
 type KitchenOrder = {
     id: number;
@@ -35,6 +36,31 @@ const statusStyles: Record<OrderStatus, string> = {
     READY: "bg-success-bg text-success-text border-success-text/20",
 };
 
+// The one button each order status shows, and who handles the next step
+const ACTIONS: Record<
+    OrderStatus,
+    { to: UpdatableOrderStatus; label: string; style: string; waiting: string }
+> = {
+    PENDING: {
+        to: "PREPARING",
+        label: "Start Preparing",
+        style: "bg-brand text-white",
+        waiting: "Waiting for the kitchen to start",
+    },
+    PREPARING: {
+        to: "READY",
+        label: "Mark as Ready",
+        style: "bg-success-text text-white",
+        waiting: "Being prepared by the kitchen",
+    },
+    READY: {
+        to: "SERVED",
+        label: "Mark as Served",
+        style: "border border-hairline bg-surface-tint text-ink",
+        waiting: "Waiting to be served",
+    },
+};
+
 function timeAgo(iso: string) {
     const diffMs = Date.now() - new Date(iso).getTime();
     const mins = Math.floor(diffMs / 60000);
@@ -47,8 +73,14 @@ function timeAgo(iso: string) {
 
 export default function KitchenClient({
     initialOrders,
+    role,
+    staffName,
+    showSignOut = false,
 }: {
     initialOrders: KitchenOrder[];
+    role: string;
+    staffName?: string;
+    showSignOut?: boolean;
 }) {
     const router = useRouter();
     const [filter, setFilter] = useState<OrderStatus>("PENDING");
@@ -57,31 +89,37 @@ export default function KitchenClient({
     useEffect(() => {
         const interval = window.setInterval(() => {
             router.refresh();
-        }, 10_000);
+        }, 5_000);
 
         return () => window.clearInterval(interval);
     }, [router]);
 
-    // Count orders in each status
     const counts = {
         PENDING: initialOrders.filter((o) => o.status === "PENDING").length,
         PREPARING: initialOrders.filter((o) => o.status === "PREPARING").length,
         READY: initialOrders.filter((o) => o.status === "READY").length,
     };
 
-    // Only show orders matching the selected tab
     const filtered = initialOrders.filter((o) => o.status === filter);
 
-    // Called when chef clicks a button
     async function handleButtonClick(
         orderId: number,
-        nextStatus: NextOrderStatus
+        nextStatus: UpdatableOrderStatus
     ) {
         setLoadingId(orderId);
 
         try {
-            await updateOrderStatus(orderId, nextStatus);
-            router.refresh(); // reload data from server
+            const result = await updateOrderStatus(orderId, nextStatus);
+
+            if (!result.success) {
+                alert(result.message);
+                if (result.code === "UNAUTHORIZED") {
+                    router.replace("/signin");
+                    return;
+                }
+            }
+
+            router.refresh();
         } catch (error) {
             alert("Failed to update order");
             console.error(error);
@@ -107,11 +145,29 @@ export default function KitchenClient({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2 rounded-full border border-hairline bg-surface px-4 py-2">
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-success-text" />
-                        <span className="text-xs font-semibold text-ink-soft">
-                            {counts.PENDING + counts.PREPARING} active
-                        </span>
+                    <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 rounded-full border border-hairline bg-surface px-4 py-2">
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-success-text" />
+                            <span className="text-xs font-semibold text-ink-soft">
+                                {counts.PENDING + counts.PREPARING} active
+                            </span>
+                        </div>
+
+                        {showSignOut && (
+                            <>
+                                <span className="hidden rounded-full border border-hairline bg-surface px-4 py-2 text-xs font-semibold capitalize text-ink-soft sm:inline">
+                                    {staffName ? `${staffName} · ${role}` : role}
+                                </span>
+                                <form action={logout}>
+                                    <button
+                                        type="submit"
+                                        className="rounded-full border border-hairline bg-surface px-4 py-2 text-xs font-semibold text-ink-soft hover:bg-surface-warm"
+                                    >
+                                        Sign out
+                                    </button>
+                                </form>
+                            </>
+                        )}
                     </div>
                 </div>
             </header>
@@ -163,6 +219,8 @@ export default function KitchenClient({
                                 0
                             );
                             const isLoading = loadingId === order.id;
+                            const action = ACTIONS[order.status];
+                            const allowed = canSetStatus(role, action.to);
 
                             return (
                                 <div
@@ -221,42 +279,22 @@ export default function KitchenClient({
                                         </p>
                                     </div>
 
-                                    {/* Action button */}
+                                    {/* Action button (only if this role may do it) */}
                                     <div className="border-t border-hairline p-3">
-                                        {order.status === "PENDING" && (
+                                        {allowed ? (
                                             <button
                                                 disabled={isLoading}
                                                 onClick={() =>
-                                                    handleButtonClick(order.id, "PREPARING")
+                                                    handleButtonClick(order.id, action.to)
                                                 }
-                                                className="w-full rounded-full bg-brand py-3 text-sm font-bold text-white disabled:opacity-50"
+                                                className={`w-full rounded-full py-3 text-sm font-bold disabled:opacity-50 ${action.style}`}
                                             >
-                                                {isLoading ? "Updating..." : "Start Preparing"}
+                                                {isLoading ? "Updating..." : action.label}
                                             </button>
-                                        )}
-
-                                        {order.status === "PREPARING" && (
-                                            <button
-                                                disabled={isLoading}
-                                                onClick={() =>
-                                                    handleButtonClick(order.id, "READY")
-                                                }
-                                                className="w-full rounded-full bg-success-text py-3 text-sm font-bold text-white disabled:opacity-50"
-                                            >
-                                                {isLoading ? "Updating..." : "Mark as Ready"}
-                                            </button>
-                                        )}
-
-                                        {order.status === "READY" && (
-                                            <button
-                                                disabled={isLoading}
-                                                onClick={() =>
-                                                    handleButtonClick(order.id, "SERVED")
-                                                }
-                                                className="w-full rounded-full border border-hairline bg-surface-tint py-3 text-sm font-bold text-ink disabled:opacity-50"
-                                            >
-                                                {isLoading ? "Updating..." : "Mark as Served"}
-                                            </button>
+                                        ) : (
+                                            <p className="py-3 text-center text-xs font-medium text-ink-muted">
+                                                {action.waiting}
+                                            </p>
                                         )}
                                     </div>
                                 </div>
