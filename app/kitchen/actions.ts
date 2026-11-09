@@ -1,59 +1,67 @@
-// app/kitchen/actions.ts
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { getUserFromToken } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
+import { getActiveStaff } from "@/lib/staffAuth";
+import {
+    REQUIRED_CURRENT,
+    canSetStatus,
+    isUpdatableStatus,
+} from "@/lib/orderPermissions";
 
-type UpdatableOrderStatus = "PENDING" | "PREPARING" | "READY" | "SERVED";
+type UpdateResult =
+    | { success: true }
+    | { success: false; message: string; code?: "UNAUTHORIZED" };
 
-export async function updateOrderStatus(orderId: number, newStatus: UpdatableOrderStatus) {
-    // 1. Check user is logged in
-    const user = await getUserFromToken();
-    if (!user) redirect("/signin");
-
-    // 2. Only allow these statuses
-    const allowed: UpdatableOrderStatus[] = [
-        "PENDING",
-        "PREPARING",
-        "READY",
-        "SERVED",
-    ];
-    if (!allowed.includes(newStatus)) {
-        throw new Error("Invalid status");
+export async function updateOrderStatus(
+    orderId: number,
+    newStatus: string
+): Promise<UpdateResult> {
+    const staff = await getActiveStaff();
+    if (!staff) {
+        return {
+            success: false,
+            message: "Your session has expired. Please sign in again.",
+            code: "UNAUTHORIZED",
+        };
     }
 
-    // 3. Make sure restaurantId is a number (JWT might return a string)
-    const restaurantId = Number(user.restaurantId);
-    if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
-        throw new Error("Invalid restaurant");
+    if (!isUpdatableStatus(newStatus)) {
+        return { success: false, message: "Invalid status." };
     }
 
-    // 4. Make sure orderId is valid
     if (!Number.isInteger(orderId) || orderId <= 0) {
-        throw new Error("Invalid order id");
+        return { success: false, message: "Invalid order." };
     }
 
-    // 5. Find the order (must belong to this restaurant)
-    const order = await prisma.order.findFirst({
+    if (!canSetStatus(staff.role, newStatus)) {
+        return {
+            success: false,
+            message: "Your role is not allowed to make this change.",
+        };
+    }
+
+    // Only move forward one step, and only if the order is still in the
+    // expected status (protects against two people clicking at once).
+    const result = await prisma.order.updateMany({
         where: {
             id: orderId,
-            restaurantId: restaurantId,
+            restaurantId: staff.restaurantId,
+            status: REQUIRED_CURRENT[newStatus],
         },
-    });
-
-    if (!order) {
-        throw new Error("Order not found");
-    }
-
-    // 6. Update the status
-    await prisma.order.update({
-        where: { id: orderId },
         data: { status: newStatus },
     });
 
-    // 7. Refresh the kitchen page so new data loads
+    if (result.count === 0) {
+        return {
+            success: false,
+            message: "This order was already updated by someone else.",
+        };
+    }
+
     revalidatePath("/kitchen");
     revalidatePath("/admin/kitchen");
+    revalidatePath("/admin/orders");
+
+    return { success: true };
 }

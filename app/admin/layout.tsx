@@ -1,4 +1,4 @@
-
+import { redirect } from "next/navigation";
 import React from "react";
 import Link from "next/link";
 import { getUserFromToken } from "@/lib/authtoke";
@@ -23,6 +23,10 @@ export default async function AdminLayout({
     children: React.ReactNode;
 }) {
     const user = await getUserFromToken();
+
+    if (!user) redirect("/signin");
+    if (user.role !== "admin") redirect("/kitchen");
+
     const restaurant = user
         ? await prisma.restaurant.findUnique({
             where: { id: user.restaurantId },

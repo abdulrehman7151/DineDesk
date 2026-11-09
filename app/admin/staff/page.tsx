@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/authtoke";
 export const dynamic = "force-dynamic";
 
 export default async function StaffPage() {
-    const user = await requireRole(["chef"]);
+    const user = await requireRole(["admin"]);
     if (!user) redirect("/signin");
 
     const memberships = await getStaffByRestaurant(user.restaurantId);

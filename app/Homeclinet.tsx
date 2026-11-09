@@ -1,5 +1,5 @@
 "use client";
-
+import OrderStatusTracker from "@/components/OrderStatusTracker";
 import React, { useMemo, useState } from "react";
 import { PlacingOrderAction } from "@/actions/orderAction";
 import type { MenuItem, Restaurant } from "@/types/menu";
@@ -50,6 +50,7 @@ export default function HomeClient({
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const [orderError, setOrderError] = useState<string | null>(null);
     const [orderSuccess, setOrderSuccess] = useState(false);
+        const [trackedOrderId, setTrackedOrderId] = useState<number | null>(null);
 
     // Local cart
     const [cart, setCart] = useState<CartLine[]>([]);
@@ -169,6 +170,7 @@ export default function HomeClient({
 
             setCart([]);
             setOrderSuccess(true);
+            setTrackedOrderId(result.orderId);
             setIsOrderOpen(false);
 
             setTimeout(() => setOrderSuccess(false), 4000);
@@ -408,6 +410,15 @@ export default function HomeClient({
                 <div className="fixed left-1/2 top-20 z-[80] -translate-x-1/2 rounded-full bg-success-bg px-5 py-3 text-sm font-bold text-success-text shadow-lift">
                     ✓ Order placed successfully!
                 </div>
+            )}
+                        {/* Live order status */}
+            {trackedOrderId !== null && tableId && (
+                <OrderStatusTracker
+                    orderId={trackedOrderId}
+                    restaurantSlug={restaurant.slug}
+                    tableId={tableId}
+                    onClose={() => setTrackedOrderId(null)}
+                />
             )}
 
             {/* Cart bar */}

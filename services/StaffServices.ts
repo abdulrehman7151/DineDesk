@@ -81,7 +81,7 @@ export async function setStaffActive(
     isActive: boolean
 ) {
     return prisma.restaurantUser.updateMany({
-        where: { id: membershipId, restaurantId },
+        where: { id: membershipId, restaurantId, role: { not: "admin" } },
         data: { isActive },
     });
 }
