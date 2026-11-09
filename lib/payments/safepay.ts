@@ -1,44 +1,75 @@
 
-import "server-only";
+import Safepay from "@sfpy/node-core";
 
-const SAFEPAY_TOKEN_URL = "https://sandbox.api.getsafepay.com/client/passport/v1/token";
+const environment = process.env.SAFEPAY_ENV || "sandbox";
 
-type SafepayTokenResponse = {
-    data?: string;
-    status?: {
-        message?: string;
-        errors?: unknown[];
-    };
-};
+const host = environment === "production"
+    ? "https://api.getsafepay.com"
+    : "https://sandbox.api.getsafepay.com";
 
-export async function getSafepayAuthToken(): Promise<string> {
+export async function createSafepayCheckout(amount: number) {
     const secretKey = process.env.SAFEPAY_SECRET_KEY;
+    const apiKey = process.env.SAFEPAY_API_KEY;
+    const appUrl = process.env.APP_URL;
 
-    if (!secretKey) {
-        throw new Error("SAFEPAY_SECRET_KEY is missing");
+    if (!secretKey || !apiKey || !appUrl) {
+        throw new Error("Missing Safepay environment variables");
     }
 
-    const response = await fetch(SAFEPAY_TOKEN_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-SFPY-MERCHANT-SECRET": secretKey,
-        },
-        body: JSON.stringify({}),
-        cache: "no-store",
+    const safepay = new Safepay(secretKey, {
+        authType: "secret",
+        host,
     });
 
-    const result = (await response.json()) as SafepayTokenResponse;
+    // 1. Create payment tracker
+    const session = await safepay.payments.session.setup({
+        merchant_api_key: apiKey,
+        intent: "CYBERSOURCE",
+        mode: "payment",
+        entry_mode: "raw",
+        currency: "PKR",
+        amount,
+        include_fees: false,
+    });
 
-    if (!response.ok) {
+    const tracker = session.data.tracker.token;
+
+    // 2. Generate authentication token
+    const authResponse = await fetch(
+        `${host}/client/passport/v1/token`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-SFPY-MERCHANT-SECRET": secretKey,
+            },
+            body: JSON.stringify({}),
+            cache: "no-store",
+        }
+    );
+
+    const authData = await authResponse.json();
+
+    if (!authResponse.ok) {
         throw new Error(
-            `Safepay authentication failed: ${response.status} - ${JSON.stringify(result)}`
+            authData?.message || "Safepay authentication failed"
         );
     }
 
-    if (!result.data) {
-        throw new Error("Safepay did not return an authentication token");
-    }
+    const authToken = authData.data;
 
-    return result.data;
+    // 3. Generate checkout URL
+    const checkoutUrl = safepay.checkout.createCheckoutUrl({
+        tracker,
+        tbt: authToken,
+        env: environment as "sandbox" | "production",
+        source: "hosted",
+        redirect_url: `${appUrl}/payment/success`,
+        cancel_url: `${appUrl}/payment/cancel`,
+    });
+
+    return {
+        tracker,
+        checkoutUrl,
+    };
 }
