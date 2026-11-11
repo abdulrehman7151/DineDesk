@@ -11,6 +11,7 @@ model User {
   name        String
   email       String           @unique
   password    String
+  phone       String?
   createdAt   DateTime         @default(now())
   restaurants Restaurant[]     @relation("RestaurantOwner")
   memberships RestaurantUser[]
@@ -92,6 +93,7 @@ model Order {
   status       OrderStatus @default(PENDING)
   tableNumber  Int?
   total        Int         @default(0)
+  hasNewAdditions Boolean  @default(false)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   table        Table?      @relation(fields: [tableId], references: [id])
@@ -117,6 +119,7 @@ model OrderItem {
   quantity  Int     @default(1)
   unitPrice Int
   notes     String?
+  isAddition Boolean @default(false)
 
   @@index([orderId])
   @@index([menuItemId])

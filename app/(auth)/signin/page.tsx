@@ -46,7 +46,7 @@ const SignInPage = () => {
                 if (state.role === "admin") {
                     router.replace("/admin");
                 } else {
-                    router.replace("/");
+                    router.replace("/kitchen");
                 }
             });
         }

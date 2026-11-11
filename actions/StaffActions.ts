@@ -2,7 +2,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getUserFromToken } from "@/lib/authtoke";
+import { getActiveStaff } from "@/lib/staffAuth";
 import {
     createStaffMember,
     getStaffByRestaurant,
@@ -10,16 +10,22 @@ import {
 } from "@/services/StaffServices";
 import type { StaffRole } from "@/types/staffKitchen";
 
-const ALLOWED_ROLES: StaffRole[] = ["chef", "waiter", "manager", "cashier"];
+const ALLOWED_ROLES: StaffRole[] = ["chef", "manager", "cashier"];
+
+const NOT_ALLOWED = {
+    success: false as const,
+    message: "Only the restaurant admin can manage staff.",
+};
 
 export async function addStaffAction(data: {
     name: string;
     email: string;
     role: StaffRole;
     password: string;
+    phone: string;
 }) {
-    const user = await getUserFromToken();
-    if (!user) return { success: false as const, message: "Unauthorized" };
+    const user = await getActiveStaff();
+    if (!user || user.role !== "admin") return NOT_ALLOWED;
 
     // ---- validation ----
     if (!data.name?.trim() || data.name.trim().length < 2) {
@@ -46,6 +52,16 @@ export async function addStaffAction(data: {
         return { success: false as const, message: "Invalid role." };
     }
 
+    // Phone is optional, but must look like a phone number if given
+    const phone = typeof data.phone === "string" ? data.phone.trim() : "";
+
+    if (phone && !/^[0-9+\-\s()]{7,20}$/.test(phone)) {
+        return {
+            success: false as const,
+            message: "Please enter a valid contact number.",
+        };
+    }
+
     try {
         const result = await createStaffMember({
             restaurantId: user.restaurantId,
@@ -53,6 +69,7 @@ export async function addStaffAction(data: {
             email,
             role: data.role,
             password: data.password,
+            phone: phone || null,
         });
 
         revalidatePath("/admin/staff");
@@ -66,6 +83,7 @@ export async function addStaffAction(data: {
                 id: result.membership.id,
                 name: result.membership.user.name,
                 email: result.membership.user.email,
+                phone: result.membership.user.phone,
                 role: result.membership.role as StaffRole,
                 isActive: result.membership.isActive,
             },
@@ -79,8 +97,8 @@ export async function addStaffAction(data: {
 }
 
 export async function toggleStaffAction(id: number, isActive: boolean) {
-    const user = await getUserFromToken();
-    if (!user) return { success: false as const, message: "Unauthorized" };
+    const user = await getActiveStaff();
+    if (!user || user.role !== "admin") return NOT_ALLOWED;
 
     try {
         await setStaffActive(id, user.restaurantId, isActive);
@@ -94,8 +112,8 @@ export async function toggleStaffAction(id: number, isActive: boolean) {
 
 /** Optional: server-side fetch used by the page. */
 export async function listStaffAction() {
-    const user = await getUserFromToken();
-    if (!user) return [];
+    const user = await getActiveStaff();
+    if (!user || user.role !== "admin") return [];
 
     const rows = await getStaffByRestaurant(user.restaurantId);
 
@@ -103,6 +121,7 @@ export async function listStaffAction() {
         id: m.id,
         name: m.user.name,
         email: m.user.email,
+        phone: m.user.phone,
         role: m.role as StaffRole,
         isActive: m.isActive,
     }));

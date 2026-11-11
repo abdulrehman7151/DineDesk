@@ -21,9 +21,10 @@ type Props = {
     isPlacingOrder: boolean;
     errorMessage: string | null;
     tableNumber: number | null;
+    isAddingToOrder?: boolean;
 };
 
-export default function ViewOrderSheet({ isOpen, onClose, items, cart, onChangeQuantity, onRemove, onPlaceOrder, isPlacingOrder, errorMessage, tableNumber }: Props) {
+export default function ViewOrderSheet({ isOpen, onClose, items, cart, onChangeQuantity, onRemove, onPlaceOrder, isPlacingOrder, errorMessage, tableNumber, isAddingToOrder = false }: Props) {
     // Lock body scroll while sheet is open
     useEffect(() => {
         if (!isOpen) return;
@@ -348,7 +349,13 @@ export default function ViewOrderSheet({ isOpen, onClose, items, cart, onChangeQ
                                 disabled:cursor-not-allowed disabled:opacity-60
                             "
                         >
-                            {isPlacingOrder ? "Placing Order..." : "Place Order"}
+                               {isPlacingOrder
+       ? isAddingToOrder
+           ? "Adding..."
+           : "Placing Order..."
+       : isAddingToOrder
+           ? "Add to My Order"
+           : "Place Order"}
                             <svg
                                 className="h-4 w-4"
                                 fill="none"
@@ -365,7 +372,9 @@ export default function ViewOrderSheet({ isOpen, onClose, items, cart, onChangeQ
                         </button>
 
                         <p className="mt-2 text-center text-[11px] text-ink-muted">
-                            Your order will be sent to the kitchen.
+                               {isAddingToOrder
+       ? "The kitchen will be told about the new items."
+       : "Your order will be sent to the kitchen."}
                         </p>
                     </div>
                 )}

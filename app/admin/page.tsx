@@ -102,30 +102,25 @@ export default async function AdminDashboard() {
         }
     });
     const occupiedTables = tables.filter((i) => i.status === "OCCUPIED")
+        const averageOrderValue =
+        filterd.length > 0 ? Math.round(Revenue / filterd.length) : 0;
+
     const stats = [
         {
             label: "Today's Revenue",
-            value: `Rs. ${Revenue}`,
-            change: "+12.4%",
-            up: true,
+            value: `Rs. ${Revenue.toLocaleString()}`,
         },
         {
             label: "Orders Today",
             value: `${orders.length}`,
-            change: "+8.1%",
-            up: true,
         },
         {
             label: "Active Tables",
             value: `${occupiedTables.length}/${tables.length}`,
-            change: "75%",
-            up: true,
         },
         {
             label: "Avg. Order Value",
-            value: `Rs. ${Revenue / orders.length}`,
-            change: "-2.3%",
-            up: false,
+            value: `Rs. ${averageOrderValue.toLocaleString()}`,
         },
     ];
 
@@ -159,12 +154,7 @@ export default async function AdminDashboard() {
                             {s.value}
                         </p>
 
-                        <p
-                            className={`mt-1 text-xs font-semibold ${s.up ? "text-success-text" : "text-brand"
-                                }`}
-                        >
-                            {s.change} vs yesterday
-                        </p>
+                        
                     </div>
                 ))}
             </div>

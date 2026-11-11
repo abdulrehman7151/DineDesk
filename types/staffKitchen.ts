@@ -16,8 +16,7 @@ export interface Order {
     total: number;
 }
 
-export type StaffRole = "chef" | "waiter" | "manager" | "cashier";
-
+export type StaffRole = "chef" | "manager" | "cashier";
 export interface StaffMember {
     id: string;
     name: string;

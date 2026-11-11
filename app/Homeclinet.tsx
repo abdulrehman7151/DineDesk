@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { PlacingOrderAction } from "@/actions/orderAction";
+import { SubmitTableOrderAction } from "@/actions/tableOrderAction";
+import OrderStatusTracker from "@/components/OrderStatusTracker";
 import type { MenuItem, Restaurant } from "@/types/menu";
 import ItemDetailModal from "@/components/ItemDetailModal";
 import ViewOrderSheet from "@/components/ViewOrderSheet";
@@ -18,8 +19,17 @@ type Props = {
     restaurant: Restaurant;
     tableId: string | null;
     tableNumber: number | null;
+    activeOrder: {
+        id: number;
+        status: "PENDING" | "PREPARING" | "READY";
+    } | null;
 };
 
+type TrackedOrder = {
+    id: number;
+    status: "PENDING" | "PREPARING" | "READY";
+    key: number;
+};
 const categories = [
     "All",
     "Breakfast",
@@ -36,6 +46,7 @@ export default function HomeClient({
     restaurant,
     tableId,
     tableNumber,
+    activeOrder,
 }: Props) {
     const [activeCategory, setActiveCategory] = useState("All");
     const [searchValue, setSearchValue] = useState("");
@@ -50,6 +61,16 @@ export default function HomeClient({
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const [orderError, setOrderError] = useState<string | null>(null);
     const [orderSuccess, setOrderSuccess] = useState(false);
+           const [successMessage, setSuccessMessage] = useState(
+           "Order placed successfully!"
+       );
+
+       // The table's current (unserved) order, shown in the status popup
+       const [tracked, setTracked] = useState<TrackedOrder | null>(
+           activeOrder
+               ? { id: activeOrder.id, status: activeOrder.status, key: 0 }
+               : null
+       );
 
     // Local cart
     const [cart, setCart] = useState<CartLine[]>([]);
@@ -144,7 +165,7 @@ export default function HomeClient({
     // =========================
     // Place order
     // =========================
-    const handlePlaceOrder = async () => {
+        const handlePlaceOrder = async () => {
         if (cart.length === 0 || isPlacingOrder) return;
         if (tableId === null) {
             setOrderError("Scan the QR code at your table to place an order.");
@@ -156,7 +177,8 @@ export default function HomeClient({
         setOrderSuccess(false);
 
         try {
-            const result = await PlacingOrderAction(
+            // Creates a new order, or adds to the table's unserved order
+            const result = await SubmitTableOrderAction(
                 cart,
                 restaurant.slug,
                 tableId
@@ -168,8 +190,20 @@ export default function HomeClient({
             }
 
             setCart([]);
+            setSuccessMessage(
+                result.mode === "added"
+                    ? "Items added to your order!"
+                    : "Order placed successfully!"
+            );
             setOrderSuccess(true);
             setIsOrderOpen(false);
+
+            // A new key restarts the status popup (it opens for 10 seconds)
+            setTracked({
+                id: result.orderId,
+                status: result.status as TrackedOrder["status"],
+                key: Date.now(),
+            });
 
             setTimeout(() => setOrderSuccess(false), 4000);
         } catch (error) {
@@ -406,9 +440,21 @@ export default function HomeClient({
             {/* Success toast */}
             {orderSuccess && (
                 <div className="fixed left-1/2 top-20 z-[80] -translate-x-1/2 rounded-full bg-success-bg px-5 py-3 text-sm font-bold text-success-text shadow-lift">
-                    ✓ Order placed successfully!
+                    ✓ {successMessage}
                 </div>
             )}
+                           {/* Live order status popup + reopen chip */}
+               {tracked && tableId && (
+                   <OrderStatusTracker
+                       key={tracked.key}
+                       orderId={tracked.id}
+                       restaurantSlug={restaurant.slug}
+                       tableId={tableId}
+                       tableNumber={tableNumber}
+                       initialStatus={tracked.status}
+                       onFinished={() => setTracked(null)}
+                   />
+               )}
 
             {/* Cart bar */}
             <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-hairline bg-surface/85 p-3 backdrop-blur-md">
@@ -459,6 +505,7 @@ export default function HomeClient({
                 isPlacingOrder={isPlacingOrder}
                 errorMessage={orderError}
                 tableNumber={tableNumber}
+                isAddingToOrder={tracked !== null}
             />
         </main>
     );

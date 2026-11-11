@@ -17,16 +17,10 @@ export default async function AdminKitchenPage() {
     const orders = await prisma.order.findMany({
         where: {
             restaurantId,
-            status: {
-                in: ["PENDING", "PREPARING", "READY"],
-            },
+            status: { in: ["PENDING", "PREPARING", "READY"] },
         },
-        include: {
-            orderItems: true,
-        },
-        orderBy: {
-            createdAt: "asc",
-        },
+        include: { orderItems: true },
+        orderBy: { createdAt: "asc" },
     });
 
     const serialized = orders.map((order) => ({
@@ -34,13 +28,15 @@ export default async function AdminKitchenPage() {
         tableNumber: order.tableNumber,
         status: order.status as "PENDING" | "PREPARING" | "READY",
         createdAt: order.createdAt.toISOString(),
+        hasNewAdditions: order.hasNewAdditions,
         orderItems: order.orderItems.map((item) => ({
             id: item.id,
             productName: item.productName,
             quantity: item.quantity,
             notes: item.notes ?? undefined,
+            isAddition: item.isAddition,
         })),
     }));
 
-    return <KitchenClient initialOrders={serialized} />;
+    return <KitchenClient initialOrders={serialized} role="admin" />;
 }

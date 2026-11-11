@@ -89,6 +89,7 @@ export async function SignIn(data: SignInData): Promise<SignInResult> {
         },
         include: {
             memberships: {
+                where: { isActive: true },
                 select: {
                     role: true,
                     restaurantId: true,
@@ -121,7 +122,7 @@ export async function SignIn(data: SignInData): Promise<SignInResult> {
     if (!membership) {
         return {
             success: false,
-            message: "No restaurant membership found.",
+            message: "Your account is deactivated or not linked to a restaurant. Please contact your manager.",
         };
     }
 

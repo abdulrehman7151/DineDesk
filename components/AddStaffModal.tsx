@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -11,19 +10,16 @@ type AddStaffModalProps = {
         email: string;
         role: StaffRole;
         password: string;
+        phone: string;
     }) => Promise<{ success: boolean; message: string }>;
 };
 
-const ROLES: StaffRole[] = [
-    "chef",
-    "waiter",
-    "manager",
-    "cashier",
-];
+const ROLES: StaffRole[] = ["chef", "manager", "cashier"];
 
 export default function AddStaffModal({ onClose, onAdd }: AddStaffModalProps) {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
+    const [phone, setPhone] = useState("");
     const [role, setRole] = useState<StaffRole>("chef");
     const [password, setPassword] = useState("");
     const [error, setError] = useState<string | null>(null);
@@ -40,6 +36,7 @@ export default function AddStaffModal({ onClose, onAdd }: AddStaffModalProps) {
             const result = await onAdd({
                 name: name.trim(),
                 email: email.trim(),
+                phone: phone.trim(),
                 role,
                 password,
             });
@@ -51,6 +48,7 @@ export default function AddStaffModal({ onClose, onAdd }: AddStaffModalProps) {
 
             setName("");
             setEmail("");
+            setPhone("");
             setRole("chef");
             setPassword("");
             onClose();
@@ -65,13 +63,16 @@ export default function AddStaffModal({ onClose, onAdd }: AddStaffModalProps) {
         if (!isSubmitting) onClose();
     };
 
+    const inputClass =
+        "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100";
+
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
             onClick={handleClose}
         >
             <div
-                className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+                className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
@@ -98,19 +99,48 @@ export default function AddStaffModal({ onClose, onAdd }: AddStaffModalProps) {
 
                 {/* Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Name */}
                     <div>
                         <label className="mb-1.5 block text-sm font-medium text-gray-700">
                             Full Name
                         </label>
-
                         <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Enter staff name"
                             required
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                            className={inputClass}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                            Email
+                        </label>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="staff@example.com"
+                            required
+                            className={inputClass}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+                            Contact Number{" "}
+                            <span className="font-normal text-gray-400">
+                                (optional)
+                            </span>
+                        </label>
+                        <input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="0300 1234567"
+                            autoComplete="tel"
+                            className={inputClass}
                         />
                     </div>
 
@@ -126,43 +156,22 @@ export default function AddStaffModal({ onClose, onAdd }: AddStaffModalProps) {
                             autoComplete="new-password"
                             minLength={8}
                             required
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
+                            className={inputClass}
                         />
                     </div>
 
-                    {/* Email */}
-                    <div>
-                        <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                            Email
-                        </label>
-
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="staff@example.com"
-                            required
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
-                        />
-                    </div>
-
-                    {/* Role */}
                     <div>
                         <label className="mb-1.5 block text-sm font-medium text-gray-700">
                             Role
                         </label>
-
                         <select
                             value={role}
-                            onChange={(e) =>
-                                setRole(e.target.value as StaffRole)
-                            }
+                            onChange={(e) => setRole(e.target.value as StaffRole)}
                             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"
                         >
                             {ROLES.map((item) => (
                                 <option key={item} value={item}>
-                                    {item.charAt(0).toUpperCase() +
-                                        item.slice(1)}
+                                    {item.charAt(0).toUpperCase() + item.slice(1)}
                                 </option>
                             ))}
                         </select>
@@ -174,7 +183,6 @@ export default function AddStaffModal({ onClose, onAdd }: AddStaffModalProps) {
                         </p>
                     )}
 
-                    {/* Buttons */}
                     <div className="flex gap-3 pt-3">
                         <button
                             type="button"
@@ -198,4 +206,3 @@ export default function AddStaffModal({ onClose, onAdd }: AddStaffModalProps) {
         </div>
     );
 }
-

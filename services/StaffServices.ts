@@ -8,6 +8,7 @@ type CreateStaffData = {
     email: string;
     role: string;
     password: string;
+    phone: string | null;
 };
 
 export async function createStaffMember(data: CreateStaffData) {
@@ -25,6 +26,7 @@ export async function createStaffMember(data: CreateStaffData) {
                     name: data.name,
                     email: data.email,
                     password: passwordHash,
+                    phone: data.phone,
                 },
             });
         }
@@ -50,7 +52,7 @@ export async function createStaffMember(data: CreateStaffData) {
             },
             include: {
                 user: {
-                    select: { id: true, name: true, email: true },
+                    select: { id: true, name: true, email: true, phone: true },
                 },
             },
         });
@@ -68,7 +70,7 @@ export async function getStaffByRestaurant(restaurantId: number) {
         where: { restaurantId },
         include: {
             user: {
-                select: { id: true, name: true, email: true },
+                select: { id: true, name: true, email: true, phone: true },
             },
         },
         orderBy: { id: "desc" },
@@ -81,7 +83,7 @@ export async function setStaffActive(
     isActive: boolean
 ) {
     return prisma.restaurantUser.updateMany({
-        where: { id: membershipId, restaurantId },
+        where: { id: membershipId, restaurantId, role: { not: "admin" } },
         data: { isActive },
     });
 }

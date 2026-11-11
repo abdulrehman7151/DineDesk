@@ -6,16 +6,16 @@ import type { StaffRole } from "@/types/staffKitchen";
 import AddStaffModal from "@/components/AddStaffModal";
 import { addStaffAction, toggleStaffAction } from "@/actions/StaffActions";
 
-type StaffRow = {
-    id: number;
-    name: string;
-    email: string;
-    role: StaffRole;
-    isActive: boolean;
-};
+   type StaffRow = {
+       id: number;
+       name: string;
+       email: string;
+       phone: string | null;
+       role: StaffRole;
+       isActive: boolean;
+   };
 
-const ROLES: StaffRole[] = ["chef", "waiter", "manager", "cashier"];
-
+   const ROLES: StaffRole[] = ["chef", "manager", "cashier"];
 export default function StaffClient({ initialStaff }: { initialStaff: StaffRow[] }) {
     const router = useRouter();
     const [staff, setStaff] = useState<StaffRow[]>(initialStaff);
@@ -42,6 +42,7 @@ export default function StaffClient({ initialStaff }: { initialStaff: StaffRow[]
         email: string;
         role: StaffRole;
         password: string;
+        phone: string;
     }) => {
         setError(null);
         setNotice(null);
@@ -153,6 +154,7 @@ export default function StaffClient({ initialStaff }: { initialStaff: StaffRow[]
                             <th className="px-6 py-3.5">Name</th>
                             <th className="px-6 py-3.5">Role</th>
                             <th className="px-6 py-3.5">Email</th>
+                            <th className="px-6 py-3.5">Phone</th>
                             <th className="px-6 py-3.5">Status</th>
                             <th className="px-6 py-3.5"></th>
                         </tr>
@@ -172,6 +174,9 @@ export default function StaffClient({ initialStaff }: { initialStaff: StaffRow[]
                                 <td className="px-6 py-4 text-ink-soft">
                                     {s.email}
                                 </td>
+                                 <td className="px-6 py-4 text-ink-soft">
+                                       {s.phone ?? "—"}
+                                   </td>
                                 <td className="px-6 py-4">
                                     <span
                                         className={`rounded-full px-2.5 py-1 text-xs font-bold ${s.isActive
@@ -202,7 +207,7 @@ export default function StaffClient({ initialStaff }: { initialStaff: StaffRow[]
                         {filtered.length === 0 && (
                             <tr>
                                 <td
-                                    colSpan={5}
+                                    colSpan={6}
                                     className="px-6 py-10 text-center text-sm text-ink-soft"
                                 >
                                     No staff found.
