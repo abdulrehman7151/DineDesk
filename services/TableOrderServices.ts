@@ -1,3 +1,4 @@
+LINES: 160
 import { prisma } from "@/lib/prisma";
 import { PlacingOrderServices } from "@/services/OrderServices";
 
@@ -101,7 +102,7 @@ async function addItemsToOrder(
                 });
             }
 
-            return tx.order.update({
+            const updated = await tx.order.update({
                 where: { id: order.id },
                 data: {
                     total: { increment: addedTotal },
@@ -110,6 +111,14 @@ async function addItemsToOrder(
                     status: order.status === "READY" ? "PREPARING" : order.status,
                 },
             });
+
+            // Adding to an existing order also means the table is in use.
+            await tx.table.update({
+                where: { id: tableId },
+                data: { status: "OCCUPIED" },
+            });
+
+            return updated;
         },
         { maxWait: 30000, timeout: 60000 }
     );
