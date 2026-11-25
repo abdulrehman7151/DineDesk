@@ -198,7 +198,7 @@ model Subscription {
 
   planId Int
   plan   SubscriptionPlan @relation(fields: [planId], references: [id])
-
+  reference String? @unique
   safepaySubscriptionId String?            @unique
   status                SubscriptionStatus @default(PENDING)
 

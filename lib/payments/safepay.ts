@@ -1,75 +1,82 @@
 
-import Safepay from "@sfpy/node-core";
+import "server-only";
 
-const environment = process.env.SAFEPAY_ENV || "sandbox";
+const environments = {
+    production: {
+        api: "https://api.getsafepay.com",
+        checkout: "https://getsafepay.com",
+    },
+    sandbox: {
+        api: "https://sandbox.api.getsafepay.com",
+        checkout: "https://sandbox.api.getsafepay.com",
+    },
+} as const;
 
-const host = environment === "production"
-    ? "https://api.getsafepay.com"
-    : "https://sandbox.api.getsafepay.com";
-
-export async function createSafepayCheckout(amount: number) {
+export async function createSafepaySubscriptionCheckout(
+    reference: string,
+    planId: string
+) {
+    const environment = process.env.SAFEPAY_ENV || "sandbox";
     const secretKey = process.env.SAFEPAY_SECRET_KEY;
-    const apiKey = process.env.SAFEPAY_API_KEY;
     const appUrl = process.env.APP_URL;
+    const hosts =
+        environment === "production" || environment === "sandbox"
+            ? environments[environment]
+            : null;
 
-    if (!secretKey || !apiKey || !appUrl) {
-        throw new Error("Missing Safepay environment variables");
+    if (!secretKey || !appUrl || !hosts) {
+        throw new Error("Safepay is not configured correctly.");
     }
 
-    const safepay = new Safepay(secretKey, {
-        authType: "secret",
-        host,
+    if (!reference.trim() || !planId.trim()) {
+        throw new Error("Subscription reference is required");
+    }
+
+    const appUrlObject = new URL(appUrl);
+    if (
+        appUrlObject.protocol !== "https:" &&
+        !(environment === "sandbox" && appUrlObject.hostname === "localhost")
+    ) {
+        throw new Error("APP_URL must use HTTPS outside local sandbox development.");
+    }
+
+    const authResponse = await fetch(`${hosts.api}/client/passport/v1/token`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-SFPY-MERCHANT-SECRET": secretKey,
+        },
+        body: JSON.stringify({}),
+        cache: "no-store",
+        signal: AbortSignal.timeout(15000),
     });
-
-    // 1. Create payment tracker
-    const session = await safepay.payments.session.setup({
-        merchant_api_key: apiKey,
-        intent: "CYBERSOURCE",
-        mode: "payment",
-        entry_mode: "raw",
-        currency: "PKR",
-        amount,
-        include_fees: false,
-    });
-
-    const tracker = session.data.tracker.token;
-
-    // 2. Generate authentication token
-    const authResponse = await fetch(
-        `${host}/client/passport/v1/token`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "X-SFPY-MERCHANT-SECRET": secretKey,
-            },
-            body: JSON.stringify({}),
-            cache: "no-store",
-        }
-    );
 
     const authData = await authResponse.json();
 
-    if (!authResponse.ok) {
+    if (!authResponse.ok || !authData?.data) {
         throw new Error(
             authData?.message || "Safepay authentication failed"
         );
     }
 
-    const authToken = authData.data;
+    if (typeof authData.data !== "string") {
+        throw new Error("Safepay returned an invalid authentication token.");
+    }
 
-    // 3. Generate checkout URL
-    const checkoutUrl = safepay.checkout.createCheckoutUrl({
-        tracker,
-        tbt: authToken,
-        env: environment as "sandbox" | "production",
-        source: "hosted",
-        redirect_url: `${appUrl}/payment/success`,
-        cancel_url: `${appUrl}/payment/cancel`,
+    const authToken = authData.data;
+    const params = new URLSearchParams({
+        plan_id: planId,
+        auth_token: authToken,
+        env: environment,
+        reference,
+        redirect_url: new URL("/subscription/success", appUrlObject).toString(),
+        cancel_url: new URL("/subscription/cancel", appUrlObject).toString(),
     });
 
+    const checkoutUrl = `${hosts.checkout}/checkout/subscribe?${params.toString()}`;
+
     return {
-        tracker,
+        reference,
         checkoutUrl,
     };
 }

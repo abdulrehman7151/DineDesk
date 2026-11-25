@@ -21,6 +21,10 @@ const quickActions = [
         label: "View Reports",
         href: "/admin/analytics",
     },
+    {
+        label: "Subscription",
+        href: "/admin/subscription",
+    },
 ];
 
 export default async function AdminDashboard() {
