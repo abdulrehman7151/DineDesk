@@ -35,6 +35,15 @@ export default async function AdminDashboard() {
         notFound();
     }
 
+    // Subscription reminder only — never blocks access to the admin.
+    const activeSubscription = await prisma.subscription.findFirst({
+        where: {
+            restaurantId: user.restaurantId,
+            status: "ACTIVE",
+        },
+        select: { id: true },
+    });
+
     const now = new Date();
     const topSellingStart = new Date(now);
     topSellingStart.setDate(topSellingStart.getDate() - 6);
@@ -121,15 +130,6 @@ export default async function AdminDashboard() {
         }
     });
     const occupiedTables = tables.filter((i) => i.status === "OCCUPIED")
-
-    // Subscription reminder only — never blocks access to the admin.
-    const activeSubscription = await prisma.subscription.findFirst({
-        where: {
-            restaurantId: user.restaurantId,
-            status: "ACTIVE",
-        },
-        select: { id: true },
-    });
         const averageOrderValue =
         todaysServed.length > 0 ? Math.round(Revenue / todaysServed.length) : 0;
 
