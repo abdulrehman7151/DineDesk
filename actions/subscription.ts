@@ -25,12 +25,17 @@ export async function startBasicSubscriptionCheckout() {
             "Basic subscription plan is unavailable.",
             "Your restaurant already has an active subscription.",
             "A subscription checkout is already in progress. Finish or cancel it before starting another.",
+            "Subscription reference is required",
+            "Safepay returned an invalid authentication token.",
         ]);
 
         return {
             success: false,
             message:
-                error instanceof Error && safeMessages.has(error.message)
+                error instanceof Error &&
+                (safeMessages.has(error.message) ||
+                    error.message.startsWith("Safepay") ||
+                    error.message.startsWith("APP_URL"))
                     ? error.message
                     : "Unable to start checkout. Please try again.",
         };
@@ -104,3 +109,4 @@ export async function cancelPendingSubscriptionCheckout() {
         };
     }
 }
+

@@ -96,6 +96,19 @@ export async function startBasicSubscriptionCheckoutService(
             }),
         ]);
 
-        throw new Error("Unable to start checkout. Please try again later.");
+        // Keep the specific SafePay reason so the admin sees what is
+        // actually wrong (missing keys vs wrong keys) instead of a
+        // generic message. SafePay's own error text carries no secrets.
+        const detail = error instanceof Error ? error.message : "";
+        const knownConfigError =
+            detail.startsWith("Safepay") ||
+            detail.startsWith("APP_URL") ||
+            detail === "Subscription reference is required";
+        throw new Error(
+            knownConfigError
+                ? detail
+                : "Unable to start checkout. Please try again later."
+        );
     }
 }
+
