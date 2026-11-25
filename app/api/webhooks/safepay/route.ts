@@ -1,6 +1,7 @@
+LINES: 445
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, SubscriptionStatus } from "@prisma/client";
 import { verifySafepayWebhookSignature } from "@/lib/payments/safepay-webhook";
 
 export const runtime = "nodejs";
@@ -56,7 +57,7 @@ function periodDate(value: unknown) {
 // Map a SafePay subscription status string to our SubscriptionStatus.
 // PAUSED has no matching value in our enum, so it maps to null and the
 // stored status is left untouched (the event is still recorded).
-function mapSubscriptionStatus(status: string | null) {
+function mapSubscriptionStatus(status: string | null): SubscriptionStatus | null {
     switch (status) {
         case "ACTIVE":
             return "ACTIVE";
@@ -443,3 +444,4 @@ export async function POST(request: Request) {
         return Response.json({ error: "Webhook processing failed." }, { status: 500 });
     }
 }
+
