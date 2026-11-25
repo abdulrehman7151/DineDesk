@@ -1,6 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import {
+    formatPakistanDate,
+    formatPakistanHour,
+    getPakistanDayKey,
+    getPakistanDayRange,
+    getPakistanHour,
+} from "@/lib/pakistanTime";
 
 type Period = 7 | 30 | 90;
 
@@ -13,6 +20,7 @@ type AnalyticsOrder = {
         quantity: number;
         unitPrice: number;
         category: string;
+        menuItemId: number | null;
     }[];
 };
 
@@ -26,17 +34,17 @@ const PERIODS: { value: Period; label: string }[] = [
     { value: 90, label: "90 days" },
 ];
 
+// All day boundaries are Pakistan days (Asia/Karachi), matching the
+// restaurant's local calendar — not UTC days.
 function getRange(period: Period, now = new Date()) {
-    const end = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-    );
-    const start = new Date(end);
-    start.setUTCDate(start.getUTCDate() - period + 1);
-    return { start, end };
+    const { start } = getPakistanDayRange(now, period - 1);
+    const { end } = getPakistanDayRange(now, 0);
+    // End of today, Pakistan time (inclusive bound for filtering).
+    return { start, end: new Date(end.getTime() - 1) };
 }
 
 function getDayKey(date: Date) {
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+    return getPakistanDayKey(date);
 }
 
 function formatMoney(value: number) {
@@ -44,19 +52,13 @@ function formatMoney(value: number) {
 }
 
 function formatDate(date: Date, options: Intl.DateTimeFormatOptions = {}) {
-    return date.toLocaleDateString("en-PK", {
-        timeZone: "UTC",
-        month: "short",
-        day: "numeric",
-        ...options,
-    });
+    return formatPakistanDate(date, options);
 }
 
 function getDailyStats(orders: AnalyticsOrder[], period: Period) {
     const { start } = getRange(period);
     const days = Array.from({ length: period }, (_, index) => {
-        const date = new Date(start);
-        date.setUTCDate(start.getUTCDate() + index);
+        const date = new Date(start.getTime() + index * 24 * 60 * 60 * 1000);
         return {
             key: getDayKey(date),
             date,
@@ -109,7 +111,7 @@ function getHourlyStats(orders: AnalyticsOrder[]) {
     }));
 
     for (const order of orders) {
-        hours[new Date(order.createdAt).getUTCHours()].orders += 1;
+        hours[getPakistanHour(new Date(order.createdAt))].orders += 1;
     }
 
     return hours
@@ -119,12 +121,7 @@ function getHourlyStats(orders: AnalyticsOrder[]) {
 }
 
 function formatHour(hour: number) {
-    const date = new Date(Date.UTC(2020, 0, 1, hour));
-    return date.toLocaleTimeString("en-PK", {
-        timeZone: "UTC",
-        hour: "numeric",
-        hour12: true,
-    });
+    return formatPakistanHour(hour);
 }
 
 export default function AnalyticsClient({ orders }: Props) {
@@ -132,12 +129,10 @@ export default function AnalyticsClient({ orders }: Props) {
 
     const filteredOrders = useMemo(() => {
         const { start, end } = getRange(period);
-        const endOfToday = new Date(end);
-        endOfToday.setUTCHours(23, 59, 59, 999);
 
         return orders.filter((order) => {
             const date = new Date(order.createdAt);
-            return date >= start && date <= endOfToday;
+            return date >= start && date <= end;
         });
     }, [orders, period]);
 
@@ -171,6 +166,10 @@ export default function AnalyticsClient({ orders }: Props) {
 
         for (const order of filteredOrders) {
             for (const item of order.orderItems) {
+                // Skip items whose menu item was deleted — they must not
+                // appear in best-selling items.
+                if (item.menuItemId === null) continue;
+
                 const current = totals.get(item.productName) ?? {
                     quantity: 0,
                     revenue: 0,

@@ -58,7 +58,15 @@ export default async function AdminOrders() {
                                             {order.tableNumber == null ? "-" : `Table ${order.tableNumber}`}
                                         </td>
                                         <td className="px-6 py-4 text-ink-soft">
-                                            {order.orderItems.reduce((count, item) => count + item.quantity, 0)} items
+                                            {(() => {
+                                                const count =
+                                                    order.orderItems.reduce(
+                                                        (sum, item) =>
+                                                            sum + item.quantity,
+                                                        0
+                                                    );
+                                                return `${count} ${count === 1 ? "item" : "items"}`;
+                                            })()}
                                         </td>
                                         <td className="px-6 py-4 font-bold text-price">
                                             Rs. {order.total.toLocaleString()}

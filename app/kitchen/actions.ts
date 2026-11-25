@@ -43,6 +43,11 @@ export async function updateOrderStatus(
 
     // Only move forward one step, and only if the order is still in the
     // expected status (protects against two people clicking at once).
+    const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { tableId: true },
+    });
+
     const result = await prisma.order.updateMany({
         where: {
             id: orderId,
@@ -63,9 +68,28 @@ export async function updateOrderStatus(
         };
     }
 
+    // A served order frees its table, but only when no other active order
+    // is still running on that table.
+    if (newStatus === "SERVED" && order?.tableId) {
+        const stillActive = await prisma.order.count({
+            where: {
+                tableId: order.tableId,
+                status: { in: ["PENDING", "PREPARING", "READY"] },
+            },
+        });
+
+        if (stillActive === 0) {
+            await prisma.table.update({
+                where: { id: order.tableId },
+                data: { status: "AVAILABLE" },
+            });
+        }
+    }
+
     revalidatePath("/kitchen");
     revalidatePath("/admin/kitchen");
     revalidatePath("/admin/orders");
+    revalidatePath("/admin/tables");
 
     return { success: true };
 }

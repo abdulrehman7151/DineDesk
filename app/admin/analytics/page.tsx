@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
+import { getPakistanDayRange } from "@/lib/pakistanTime";
 import AnalyticsClient from "./AnalyticsClient";
 
 export const dynamic = "force-dynamic";
@@ -13,10 +14,8 @@ export default async function AdminAnalytics() {
     }
 
     const now = new Date();
-    const start = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-    );
-    start.setUTCDate(start.getUTCDate() - 89);
+    // Last 90 Pakistan days, starting at PKT midnight 89 days ago.
+    const { start } = getPakistanDayRange(now, 89);
 
     const orders = await prisma.order.findMany({
         where: {
@@ -38,6 +37,7 @@ export default async function AdminAnalytics() {
                     unitPrice: true,
                     menuItem: {
                         select: {
+                            id: true,
                             category: true,
                         },
                     },
@@ -58,6 +58,9 @@ export default async function AdminAnalytics() {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             category: item.menuItem?.category ?? "Other",
+            // null when the menu item was deleted (SetNull) — the client
+            // skips these in best-selling items.
+            menuItemId: item.menuItem?.id ?? null,
         })),
     }));
 

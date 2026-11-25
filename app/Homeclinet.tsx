@@ -30,16 +30,6 @@ type TrackedOrder = {
     status: "PENDING" | "PREPARING" | "READY";
     key: number;
 };
-const categories = [
-    "All",
-    "Breakfast",
-    "Burgers",
-    "Pizza",
-    "Chicken",
-    "Pasta",
-    "Drinks",
-    "Desserts",
-];
 
 export default function HomeClient({
     items,
@@ -50,6 +40,13 @@ export default function HomeClient({
 }: Props) {
     const [activeCategory, setActiveCategory] = useState("All");
     const [searchValue, setSearchValue] = useState("");
+
+    // Category pills come from the menu itself, so they always match the
+    // categories actually in use (and the admin menu filters).
+    const categories = useMemo(
+        () => ["All", ...Array.from(new Set(items.map((item) => item.category)))],
+        [items]
+    );
 
     // Modal state
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);

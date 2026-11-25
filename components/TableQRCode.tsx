@@ -17,6 +17,8 @@ export default function TableQRCode({
     onClose,
 }: Props) {
     const [qrCode, setQrCode] = useState("");
+    const [guestUrl, setGuestUrl] = useState("");
+    const [copied, setCopied] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -27,6 +29,8 @@ export default function TableQRCode({
                     window.location.origin
                 );
                 url.searchParams.set("tableId", tableId);
+
+                setGuestUrl(url.toString());
 
                 const qr = await QRCode.toDataURL(url.toString(), {
                     width: 400,
@@ -43,6 +47,17 @@ export default function TableQRCode({
 
         generateQR();
     }, [tableId, restaurantSlug]);
+
+    async function copyUrl() {
+        if (!guestUrl) return;
+        try {
+            await navigator.clipboard.writeText(guestUrl);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 2000);
+        } catch (error) {
+            console.error("Copy failed:", error);
+        }
+    }
 
     function downloadQR() {
         if (!qrCode) return;
@@ -157,6 +172,27 @@ export default function TableQRCode({
                     )}
 
                 </div>
+
+                {/* Guest menu link */}
+                {guestUrl && (
+                    <div className="mt-4">
+                        <p className="text-xs font-bold uppercase tracking-wide text-ink-muted">
+                            Guest menu link
+                        </p>
+                        <div className="mt-1.5 flex items-center gap-2">
+                            <p className="min-w-0 flex-1 break-all rounded-xl bg-surface-tint px-3 py-2 text-xs text-ink">
+                                {guestUrl}
+                            </p>
+                            <button
+                                type="button"
+                                onClick={copyUrl}
+                                className="shrink-0 rounded-full border border-hairline bg-surface-tint px-3 py-2 text-xs font-bold text-ink transition hover:border-brand hover:text-brand"
+                            >
+                                {copied ? "Copied" : "Copy"}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Buttons */}
                 <div className="mt-6 flex gap-3">
