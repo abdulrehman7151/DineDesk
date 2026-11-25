@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { verifySafepayWebhookSignature } from "@/lib/payments/safepay-webhook";
 
 export const runtime = "nodejs";
@@ -43,6 +44,35 @@ function integer(value: unknown) {
         : null;
 }
 
+// SafePay subscription payloads carry period bounds as { seconds, nanos }.
+function periodDate(value: unknown) {
+    if (!isRecord(value)) return null;
+    const seconds = integer(value.seconds);
+    if (seconds === null) return null;
+    const date = new Date(seconds * 1000);
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+// Map a SafePay subscription status string to our SubscriptionStatus.
+// PAUSED has no matching value in our enum, so it maps to null and the
+// stored status is left untouched (the event is still recorded).
+function mapSubscriptionStatus(status: string | null) {
+    switch (status) {
+        case "ACTIVE":
+            return "ACTIVE";
+        case "CANCELED":
+            return "CANCELLED";
+        case "ENDED":
+            return "EXPIRED";
+        case "UNPAID":
+            return "PAST_DUE";
+        case "INCOMPLETE":
+            return "PENDING";
+        default:
+            return null;
+    }
+}
+
 function subscriptionIdentity(reference: string | null, providerId: string | null) {
     const OR = [
         ...(reference ? [{ reference }] : []),
@@ -57,9 +87,48 @@ async function applyEvent(event: SafepayWebhookEvent) {
     const eventType = event.type;
     const reference = text(data.reference);
     const tracker = text(data.tracker);
+    // Subscription payloads carry the SafePay subscription id in `data.id`
+    // (e.g. "sub_..."). The event `token` is the webhook delivery id, not
+    // the subscription id, so it must never be used as the subscription id.
     const providerSubscriptionId =
         text(data.subscription_id) ??
-        (eventType.startsWith("subscription.") ? text(data.token) : null);
+        (eventType.startsWith("subscription.") ? text(data.id) : null);
+    const periodStart = periodDate(data.current_period_start_date);
+    const periodEnd = periodDate(data.current_period_end_date);
+    const periodDates = {
+        ...(periodStart ? { currentPeriodStart: periodStart } : {}),
+        ...(periodEnd ? { currentPeriodEnd: periodEnd } : {}),
+    };
+
+    // Find the local subscription for this event. Prefer the reference we
+    // sent at checkout (or the SafePay subscription id once known). The
+    // documented SafePay payloads do not echo our reference back, so fall
+    // back to matching the plan + the restaurant owner's email, which every
+    // subscription payload includes as `customer_email`.
+    async function resolveSubscription(tx: Prisma.TransactionClient) {
+        const identity = subscriptionIdentity(reference, providerSubscriptionId);
+        if (identity) {
+            const found = await tx.subscription.findFirst({
+                where: identity,
+                include: { plan: true, payments: true },
+            });
+            if (found) return found;
+        }
+
+        const planId = text(data.plan_id);
+        const email = text(data.customer_email);
+        if (!planId || !email) return null;
+
+        return tx.subscription.findFirst({
+            where: {
+                status: { in: ["PENDING", "ACTIVE", "PAST_DUE"] },
+                plan: { safepayPlanId: planId },
+                restaurant: { owner: { email } },
+            },
+            orderBy: { createdAt: "desc" },
+            include: { plan: true, payments: true },
+        });
+    }
 
     await prisma.$transaction(async (transaction) => {
         const safeData: Record<string, string | number> = {};
@@ -69,8 +138,12 @@ async function applyEvent(event: SafepayWebhookEvent) {
             "amount",
             "currency",
             "state",
+            "status",
             "subscription_id",
-            "token",
+            "plan_id",
+            "customer_email",
+            "transaction_id",
+            "id",
         ]) {
             const value = data[key];
             if (
@@ -93,28 +166,68 @@ async function applyEvent(event: SafepayWebhookEvent) {
             },
         });
 
-        if (eventType === "subscription.created" && reference && providerSubscriptionId) {
-            await transaction.subscription.updateMany({
-                where: { reference },
-                data: { safepaySubscriptionId: providerSubscriptionId },
-            });
+        if (eventType === "subscription.created") {
+            const linkData = {
+                ...(providerSubscriptionId
+                    ? { safepaySubscriptionId: providerSubscriptionId }
+                    : {}),
+                ...periodDates,
+            };
+            let linked = false;
+            if (reference && Object.keys(linkData).length > 0) {
+                const result = await transaction.subscription.updateMany({
+                    where: { reference },
+                    data: linkData,
+                });
+                linked = result.count > 0;
+            }
+            if (!linked && Object.keys(linkData).length > 0) {
+                const subscription = await resolveSubscription(transaction);
+                if (subscription) {
+                    await transaction.subscription.update({
+                        where: { id: subscription.id },
+                        data: linkData,
+                    });
+                }
+            }
         }
+
+        if (eventType === "subscription.updated") {
+            const subscription = await resolveSubscription(transaction);
+            if (subscription) {
+                const mapped = mapSubscriptionStatus(text(data.status));
+                const updateData = {
+                    ...(providerSubscriptionId
+                        ? { safepaySubscriptionId: providerSubscriptionId }
+                        : {}),
+                    ...(mapped ? { status: mapped } : {}),
+                    ...periodDates,
+                };
+                if (Object.keys(updateData).length > 0) {
+                    await transaction.subscription.update({
+                        where: { id: subscription.id },
+                        data: updateData,
+                    });
+                }
+            }
+        }
+
+        // Subscription renewal payments carry a transaction_id (txn_...),
+        // not a tracker. One-off checkout payments carry a tracker.
+        const transactionId =
+            eventType === "subscription.payment.succeeded"
+                ? text(data.transaction_id)
+                : tracker;
 
         if (
             (eventType === "payment.succeeded" ||
                 eventType === "subscription.payment.succeeded") &&
-            tracker &&
+            transactionId &&
             (eventType === "subscription.payment.succeeded" ||
                 data.state === undefined ||
                 data.state === "TRACKER_ENDED")
         ) {
-            const identity = subscriptionIdentity(reference, providerSubscriptionId);
-            const subscription = identity
-                ? await transaction.subscription.findFirst({
-                      where: identity,
-                      include: { plan: true, payments: true },
-                  })
-                : null;
+            const subscription = await resolveSubscription(transaction);
             const amount = integer(data.amount);
             const currency = text(data.currency)?.toUpperCase();
 
@@ -122,10 +235,10 @@ async function applyEvent(event: SafepayWebhookEvent) {
                 subscription &&
                 amount === subscription.plan.price &&
                 currency === subscription.plan.currency.toUpperCase() &&
-                ["PENDING", "ACTIVE"].includes(subscription.status)
+                ["PENDING", "ACTIVE", "PAST_DUE"].includes(subscription.status)
             ) {
                 const recordedPayment = await transaction.payment.findUnique({
-                    where: { safepayTransactionId: tracker },
+                    where: { safepayTransactionId: transactionId },
                 });
 
                 if (!recordedPayment) {
@@ -142,7 +255,7 @@ async function applyEvent(event: SafepayWebhookEvent) {
                                 amount,
                                 currency,
                                 status: "SUCCEEDED",
-                                safepayTransactionId: tracker,
+                                safepayTransactionId: transactionId,
                                 paidAt: new Date(),
                             },
                         });
@@ -153,7 +266,7 @@ async function applyEvent(event: SafepayWebhookEvent) {
                                 amount,
                                 currency,
                                 status: "SUCCEEDED",
-                                safepayTransactionId: tracker,
+                                safepayTransactionId: transactionId,
                                 paidAt: new Date(),
                             },
                         });
@@ -161,7 +274,13 @@ async function applyEvent(event: SafepayWebhookEvent) {
 
                     await transaction.subscription.update({
                         where: { id: subscription.id },
-                        data: { status: "ACTIVE" },
+                        data: {
+                            status: "ACTIVE",
+                            ...(providerSubscriptionId
+                                ? { safepaySubscriptionId: providerSubscriptionId }
+                                : {}),
+                            ...periodDates,
+                        },
                     });
                 }
             } else if (subscription) {
@@ -177,13 +296,7 @@ async function applyEvent(event: SafepayWebhookEvent) {
         }
 
         if (eventType === "payment.failed" && tracker) {
-            const identity = subscriptionIdentity(reference, providerSubscriptionId);
-            const subscription = identity
-                ? await transaction.subscription.findFirst({
-                      where: identity,
-                      include: { payments: true },
-                  })
-                : null;
+            const subscription = await resolveSubscription(transaction);
             const pendingPayment = subscription?.payments.find(
                 (payment) => payment.status === "PENDING"
             );
@@ -199,15 +312,46 @@ async function applyEvent(event: SafepayWebhookEvent) {
             }
         }
 
+        // A failed or unpaid billing cycle: the subscription stays on file
+        // but is marked past due so the admin can see it and resubscribe.
+        // subscription.payment.failed carries a transaction_id (txn_...),
+        // not a tracker.
+        if (
+            eventType === "subscription.unpaid" ||
+            eventType === "subscription.payment.failed"
+        ) {
+            const subscription = await resolveSubscription(transaction);
+            if (subscription) {
+                await transaction.subscription.update({
+                    where: { id: subscription.id },
+                    data: { status: "PAST_DUE", ...periodDates },
+                });
+
+                const pendingPayment = subscription.payments.find(
+                    (payment) => payment.status === "PENDING"
+                );
+                if (pendingPayment) {
+                    const failedTransactionId =
+                        text(data.transaction_id) ?? tracker;
+                    await transaction.payment.update({
+                        where: { id: pendingPayment.id },
+                        data: {
+                            status: "FAILED",
+                            ...(failedTransactionId
+                                ? { safepayTransactionId: failedTransactionId }
+                                : {}),
+                        },
+                    });
+                }
+            }
+        }
+
         if (
             eventType === "subscription.canceled" ||
             eventType === "subscription.ended" ||
             eventType === "subscription.resumed"
         ) {
-            const identity = subscriptionIdentity(reference, providerSubscriptionId);
-            const subscription = identity
-                ? await transaction.subscription.findFirst({ where: identity })
-                : null;
+            const subscription = await resolveSubscription(transaction);
 
             if (subscription) {
                 await transaction.subscription.update({
@@ -220,7 +364,11 @@ async function applyEvent(event: SafepayWebhookEvent) {
                               }
                             : eventType === "subscription.ended"
                               ? { status: "EXPIRED" }
-                              : { status: "ACTIVE", cancelledAt: null },
+                              : {
+                                    status: "ACTIVE",
+                                    cancelledAt: null,
+                                    ...periodDates,
+                                },
                 });
             }
         }
@@ -233,7 +381,10 @@ async function applyEvent(event: SafepayWebhookEvent) {
 }
 
 export async function POST(request: Request) {
-    const secret = process.env.SAFEPAY_WEBHOOK_SECRET;
+    // A dedicated webhook secret is preferred. When it is not set, fall back
+    // to the merchant secret key (SafePay signs webhooks with it by default).
+    const secret =
+        process.env.SAFEPAY_WEBHOOK_SECRET || process.env.SAFEPAY_SECRET_KEY;
     if (!secret) {
         console.error("Safepay webhook secret is not configured.");
         return Response.json({ error: "Webhook is not configured." }, { status: 503 });

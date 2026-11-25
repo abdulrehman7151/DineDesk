@@ -106,6 +106,15 @@ export default async function AdminDashboard() {
         }
     });
     const occupiedTables = tables.filter((i) => i.status === "OCCUPIED")
+
+    // Subscription reminder only — never blocks access to the admin.
+    const activeSubscription = await prisma.subscription.findFirst({
+        where: {
+            restaurantId: user.restaurantId,
+            status: "ACTIVE",
+        },
+        select: { id: true },
+    });
     const stats = [
         {
             label: "Today's Revenue",
@@ -147,6 +156,25 @@ export default async function AdminDashboard() {
                     today.
                 </p>
             </div>
+
+            {/* Subscription reminder — informational only, never blocks admin */}
+            {!activeSubscription ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-hairline bg-brand-soft p-4 shadow-soft">
+                    <p className="text-sm font-semibold text-ink">
+                        Your restaurant does not have an active subscription yet.
+                        <span className="ml-1 font-normal text-ink-soft">
+                            Subscribe for Rs. 1,500/month to keep billing up to
+                            date.
+                        </span>
+                    </p>
+                    <Link
+                        href="/admin/subscription"
+                        className="rounded-full bg-brand px-4 py-2 text-xs font-bold text-white transition hover:bg-brand-deep"
+                    >
+                        View subscription →
+                    </Link>
+                </div>
+            ) : null}
 
             {/* Stats */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

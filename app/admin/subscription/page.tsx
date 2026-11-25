@@ -18,12 +18,32 @@ export default async function SubscriptionPage() {
         prisma.subscription.findFirst({
             where: {
                 restaurantId: user.restaurantId,
-                status: { in: ["ACTIVE", "PENDING"] },
             },
             orderBy: { createdAt: "desc" },
-            select: { status: true },
+            select: {
+                status: true,
+                currentPeriodEnd: true,
+                payments: {
+                    orderBy: { createdAt: "desc" },
+                    take: 1,
+                    select: {
+                        amount: true,
+                        currency: true,
+                        status: true,
+                        paidAt: true,
+                    },
+                },
+            },
         }),
     ]);
+
+    // Only an active (or in-progress) subscription blocks a new checkout.
+    // A past-due, cancelled or expired subscription can be replaced by
+    // subscribing again.
+    const checkoutBlocked =
+        subscription?.status === "ACTIVE" ||
+        subscription?.status === "PENDING";
+    const lastPayment = subscription?.payments[0];
 
     return (
         <section className="mx-auto max-w-2xl space-y-6">
@@ -53,14 +73,53 @@ export default async function SubscriptionPage() {
                 )}
 
                 {subscription ? (
-                    <p className="mt-4 text-sm text-ink-soft">
-                        Current status: <strong>{subscription.status}</strong>
-                    </p>
+                    <div className="mt-4 space-y-1 text-sm text-ink-soft">
+                        <p>
+                            Current status:{" "}
+                            <strong>{subscription.status}</strong>
+                        </p>
+                        {subscription.currentPeriodEnd ? (
+                            <p>
+                                Current period ends:{" "}
+                                {subscription.currentPeriodEnd.toLocaleDateString(
+                                    "en-PK",
+                                    {
+                                        year: "numeric",
+                                        month: "short",
+                                        day: "numeric",
+                                    }
+                                )}
+                            </p>
+                        ) : null}
+                        {lastPayment ? (
+                            <p>
+                                Last payment: {lastPayment.currency}{" "}
+                                {(lastPayment.amount / 100).toLocaleString()} ·{" "}
+                                {lastPayment.status}
+                                {lastPayment.paidAt
+                                    ? ` · ${lastPayment.paidAt.toLocaleDateString(
+                                          "en-PK",
+                                          {
+                                              year: "numeric",
+                                              month: "short",
+                                              day: "numeric",
+                                          }
+                                      )}`
+                                    : ""}
+                            </p>
+                        ) : null}
+                        {subscription.status === "PAST_DUE" ? (
+                            <p className="font-semibold text-brand">
+                                Your last payment did not go through. Subscribe
+                                again below to reactivate your subscription.
+                            </p>
+                        ) : null}
+                    </div>
                 ) : null}
 
                 <div className="mt-6">
                     <SubscriptionCheckoutButton
-                        disabled={!plan?.isActive || Boolean(subscription)}
+                        disabled={!plan?.isActive || checkoutBlocked}
                     />
                     {subscription?.status === "PENDING" ? (
                         <CancelPendingCheckoutButton />
