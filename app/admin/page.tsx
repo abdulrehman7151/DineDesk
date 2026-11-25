@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/authtoke";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getPakistanDayRange } from "@/lib/pakistanTime";
 
 const quickActions = [
     {
@@ -87,18 +88,32 @@ export default async function AdminDashboard() {
         .slice(0, 4);
     const highestQuantity = topSellingItems[0]?.sold ?? 0;
 
-    const orders = await prisma.order.findMany({
+    // "Today" means the current day in the restaurant's timezone
+    // (Asia/Karachi), not all time and not the server's UTC day.
+    const { start: todayStart, end: todayEnd } = getPakistanDayRange(
+        new Date(),
+        0
+    );
+
+    const todaysOrders = await prisma.order.findMany({
         where: {
             restaurantId: user.restaurantId,
-        }
+            createdAt: {
+                gte: todayStart,
+                lt: todayEnd,
+            },
+        },
+        select: {
+            status: true,
+            total: true,
+        },
     });
 
+    const todaysServed = todaysOrders.filter((i) => i.status === "SERVED");
 
-    const filterd = orders.filter((i) => i.status === "SERVED")
-
-    const Revenue = filterd.reduce((acc, current) => {
+    const Revenue = todaysServed.reduce((acc, current) => {
         return acc + current.total;
-    }, 0)
+    }, 0);
 
     const tables = await prisma.table.findMany({
         where: {
@@ -115,30 +130,25 @@ export default async function AdminDashboard() {
         },
         select: { id: true },
     });
+        const averageOrderValue =
+        todaysServed.length > 0 ? Math.round(Revenue / todaysServed.length) : 0;
+
     const stats = [
         {
             label: "Today's Revenue",
-            value: `Rs. ${Revenue}`,
-            change: "+12.4%",
-            up: true,
+            value: `Rs. ${Revenue.toLocaleString()}`,
         },
         {
             label: "Orders Today",
-            value: `${orders.length}`,
-            change: "+8.1%",
-            up: true,
+            value: `${todaysOrders.length}`,
         },
         {
             label: "Active Tables",
             value: `${occupiedTables.length}/${tables.length}`,
-            change: "75%",
-            up: true,
         },
         {
             label: "Avg. Order Value",
-            value: `Rs. ${Revenue / orders.length}`,
-            change: "-2.3%",
-            up: false,
+            value: `Rs. ${averageOrderValue.toLocaleString()}`,
         },
     ];
 
@@ -191,12 +201,7 @@ export default async function AdminDashboard() {
                             {s.value}
                         </p>
 
-                        <p
-                            className={`mt-1 text-xs font-semibold ${s.up ? "text-success-text" : "text-brand"
-                                }`}
-                        >
-                            {s.change} vs yesterday
-                        </p>
+                        
                     </div>
                 ))}
             </div>
