@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import ProfileDropdown from "@/components/ProfileDropdown";
+import NotificationsBell from "@/components/NotificationsBell";
 import MobileAdminNav from "@/components/MobileAdminNav";
 import { prisma } from "@/lib/prisma";
 
@@ -33,6 +34,32 @@ export default async function AdminLayout({
             select: { name: true, city: true },
         })
         : null;
+
+    const activeOrders = user
+        ? await prisma.order.findMany({
+            where: {
+                restaurantId: user.restaurantId,
+                status: { in: ["PENDING", "PREPARING"] },
+            },
+            select: {
+                id: true,
+                tableNumber: true,
+                total: true,
+                status: true,
+                createdAt: true,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 10,
+        })
+        : [];
+
+    const notifications = activeOrders.map((order) => ({
+        id: order.id,
+        tableNumber: order.tableNumber,
+        total: order.total,
+        status: order.status,
+        createdAt: order.createdAt.toISOString(),
+    }));
 
     return (
         <div className="flex min-h-screen bg-surface text-ink">
@@ -109,25 +136,7 @@ export default async function AdminLayout({
 
                         <div className="flex items-center gap-2">
                             {/* Notification */}
-                            <button
-                                type="button"
-                                aria-label="Notifications"
-                                className="flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-surface text-ink-soft transition hover:text-ink"
-                            >
-                                <svg
-                                    className="h-4 w-4"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0"
-                                    />
-                                </svg>
-                            </button>
+                            <NotificationsBell notifications={notifications} />
 
                             {/* Client dropdown */}
                             <ProfileDropdown

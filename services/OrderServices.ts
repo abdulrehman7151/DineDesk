@@ -45,6 +45,12 @@ export const PlacingOrderServices = async (
             },
         });
 
+        // The table is now in use until its order is served.
+        await tx.table.update({
+            where: { id: tableId },
+            data: { status: "OCCUPIED" },
+        });
+
         let total = 0;
 
         // =========================

@@ -557,7 +557,7 @@ export default function NotFound() {
 
                         <MagneticButton>
                             <Link
-                                href="/"
+                                href="/admin"
                                 className="
                                     group
                                     flex
