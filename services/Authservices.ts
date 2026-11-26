@@ -23,6 +23,7 @@ export type SignInResult =
     | {
         success: false;
         message: string;
+        needsVerification?: boolean;
     }
     | {
         success: true;
@@ -52,6 +53,7 @@ export async function createUserAndRestaurant(data: SignupData) {
                 name: data.name,
                 email: data.email,
                 password: data.password,
+                emailVerified: false,
             },
         });
 
@@ -114,6 +116,14 @@ export async function SignIn(data: SignInData): Promise<SignInResult> {
         return {
             success: false,
             message: "Incorrect password.",
+        };
+    }
+
+    if (!findUser.emailVerified) {
+        return {
+            success: false,
+            message: "Please verify your email first — we sent a 6-digit code to your inbox.",
+            needsVerification: true,
         };
     }
 

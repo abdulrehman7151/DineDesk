@@ -34,6 +34,7 @@ const inputClass =
 const SignInPage = () => {
     const router = useRouter();
     const [showPassword, setShowPassword] = useState(false);
+    const [emailValue, setEmailValue] = useState("");
 
     const [state, formAction, isPending] = useActionState(
         signInAction,
@@ -159,6 +160,7 @@ const SignInPage = () => {
                                 autoComplete="email"
                                 placeholder="admin@restaurant.com"
                                 disabled={isPending || state.success}
+                                onChange={(e) => setEmailValue(e.target.value)}
                                 className={inputClass}
                             />
                         </div>
@@ -231,6 +233,19 @@ const SignInPage = () => {
                             >
                                 {state.message}
                             </div>
+                        )}
+
+                        {/* Unverified email: link to the verification page */}
+                        {!state.success && state.needsVerification && (
+                            <p className="text-sm text-[#5b5b70]">
+                                Didn&apos;t get the code?{" "}
+                                <Link
+                                    href={`/verify-email?email=${encodeURIComponent(emailValue.trim())}`}
+                                    className="font-semibold text-[var(--dd-accent)] transition hover:text-[#82101a]"
+                                >
+                                    Verify your email
+                                </Link>
+                            </p>
                         )}
                     </form>
 

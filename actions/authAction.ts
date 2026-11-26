@@ -3,16 +3,20 @@
 import bcrypt from "bcrypt";
 import { cookies } from "next/headers";
 import { createUserAndRestaurant, SignIn } from "@/services/Authservices";
+import { requestEmailVerification } from "@/services/emailVerification";
 
 export type SignupState = {
     success: boolean;
     message: string;
+    email?: string;
+    needsVerification?: boolean;
 };
 
 export type SigninState = {
     success: boolean;
     message: string;
     role?: string;
+    needsVerification?: boolean;
 };
 
 export async function signup(
@@ -80,9 +84,28 @@ export async function signup(
             phone: phone.trim(),
         });
 
+        const normalizedEmail = email.trim().toLowerCase();
+
+        try {
+            await requestEmailVerification(normalizedEmail);
+        } catch (error) {
+            console.error("Verification email error:", error);
+
+            return {
+                success: true,
+                message:
+                    "Account created! We couldn't send the verification code — please use the resend option on the verification page.",
+                email: normalizedEmail,
+                needsVerification: true,
+            };
+        }
+
         return {
             success: true,
-            message: "Account created successfully!",
+            message:
+                "Account created! We sent a 6-digit verification code to your email.",
+            email: normalizedEmail,
+            needsVerification: true,
         };
     } catch (error) {
         console.error("Signup error:", error);
@@ -130,6 +153,7 @@ export async function signInAction(
             return {
                 success: false,
                 message: result.message,
+                needsVerification: result.needsVerification,
             };
         }
 

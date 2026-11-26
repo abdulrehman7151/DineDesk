@@ -37,10 +37,14 @@ const SignUpPage = () => {
     useEffect(() => {
         if (state.success) {
             startTransition(() => {
-                setTimeout(() => router.replace("/signin"), 1500);
+                const target =
+                    state.needsVerification && state.email
+                        ? `/verify-email?email=${encodeURIComponent(state.email)}`
+                        : "/signin";
+                setTimeout(() => router.replace(target), 1500);
             });
         }
-    }, [state.success, router]);
+    }, [state.success, state.needsVerification, state.email, router]);
 
     return (
         <main
