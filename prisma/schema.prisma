@@ -203,6 +203,7 @@ model Subscription {
   plan   SubscriptionPlan @relation(fields: [planId], references: [id])
   reference String? @unique
   safepaySubscriptionId String?            @unique
+  paddleSubscriptionId  String?            @unique
   status                SubscriptionStatus @default(PENDING)
 
   currentPeriodStart DateTime?
@@ -226,6 +227,7 @@ model Payment {
   subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   safepayTransactionId String?       @unique
+  paddleTransactionId  String?       @unique
   amount               Int
   currency             String        @default("PKR") @db.VarChar(3)
   status               PaymentStatus @default(PENDING)

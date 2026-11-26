@@ -4,6 +4,7 @@
 import { requireRole } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
 import { startBasicSubscriptionCheckoutService } from "@/services/Subscriptionservices";
+import { startPaddleSubscriptionCheckoutService } from "@/services/PaddleSubscriptionservices";
 
 export async function startBasicSubscriptionCheckout() {
     try {
@@ -36,6 +37,41 @@ export async function startBasicSubscriptionCheckout() {
                 (safeMessages.has(error.message) ||
                     error.message.startsWith("Safepay") ||
                     error.message.startsWith("APP_URL"))
+                    ? error.message
+                    : "Unable to start checkout. Please try again.",
+        };
+    }
+}
+
+export async function startPaddleSubscriptionCheckout() {
+    try {
+        const user = await requireRole(["admin"]);
+
+        if (!user) {
+            return {
+                success: false,
+                message: "Unauthorized. Admin access required.",
+            };
+        }
+
+        const result = await startPaddleSubscriptionCheckoutService(
+            user.restaurantId,
+            user.email
+        );
+
+        return result;
+    } catch (error) {
+        console.error("Paddle subscription action error:", error);
+        const safeMessages = new Set([
+            "Basic subscription plan is unavailable.",
+            "Your restaurant already has an active subscription.",
+            "A subscription checkout is already in progress. Finish or cancel it before starting another.",
+        ]);
+
+        return {
+            success: false,
+            message:
+                error instanceof Error && safeMessages.has(error.message)
                     ? error.message
                     : "Unable to start checkout. Please try again.",
         };

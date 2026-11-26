@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
-// SafePay redirects here after checkout. This page is NOT proof of payment:
-// the subscription only becomes ACTIVE when SafePay's webhook confirms the
-// payment on the server. The reference is the random id we sent SafePay at
-// checkout, so looking it up here is safe without a sign-in.
+// Paddle redirects here after checkout. This page is NOT proof of payment:
+// the subscription only becomes ACTIVE when Paddle's webhook confirms the
+// payment on the server. The reference is the random id we sent Paddle at
+// checkout (as custom data), so looking it up here is safe without a sign-in.
 export default async function SubscriptionSuccessPage({
     searchParams,
 }: {
@@ -23,7 +23,7 @@ export default async function SubscriptionSuccessPage({
         <main className="mx-auto max-w-xl p-8">
             <h1 className="text-2xl font-bold">Payment received for verification</h1>
             <p className="mt-3 text-sm text-ink-soft">
-                Safepay is confirming the payment. Your subscription will only
+                Paddle is confirming the payment. Your subscription will only
                 become active after our server verifies the payment
                 notification. That usually takes a few moments — refresh your
                 subscription page to see the updated status.

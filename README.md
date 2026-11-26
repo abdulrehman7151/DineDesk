@@ -103,6 +103,89 @@ npx prisma db seed
 | `subscription.paused` | Recorded, but the status is left unchanged (there is no `PAUSED` status in the schema). |
 | Anything else | Recorded and ignored; the endpoint still returns 200. |
 
+## Subscription billing (Paddle)
+
+Restaurants subscribe to one plan — **DineDesk Basic, Rs 1,500/month** —
+paid through Paddle's overlay checkout (USD 5.00/month for international
+cards). Card details are only ever entered in Paddle's secure checkout,
+never in this app. The SafePay sandbox flow is still in the code, but the
+Subscribe button now uses Paddle.
+
+### How it works
+
+1. An admin opens **Subscription** in the admin panel and clicks
+   **Subscribe with Paddle**.
+2. The server creates a `PENDING` subscription (with a random reference)
+   and the browser opens the Paddle checkout overlay for the DineDesk
+   Basic price (`pri_01m8cq9pqm4t83zgp9s5psmdnn`), passing the reference
+   as custom data.
+3. Paddle redirects back to `/subscription/success?reference=...` after
+   payment. The success page is **not** proof of payment.
+4. Paddle sends a webhook to `/api/webhooks/paddle`. Only the webhook
+   marks the subscription `ACTIVE` (and records the payment). Webhook
+   signatures are verified, events are stored in `WebhookEvent`, and
+   duplicate deliveries are ignored.
+
+### Environment variables
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `PADDLE_API_KEY` | For API use | Paddle live API key (server only, never in the browser). |
+| `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN` | Yes | Paddle live client-side token used by Paddle.js in the browser. |
+| `PADDLE_WEBHOOK_SECRET` | Yes | Signing secret of the Paddle notification destination. No fallback — the webhook returns 503 without it. |
+
+### First-time setup (production database)
+
+```bash
+# 1. Apply the migrations (the Vercel build only runs `prisma generate`,
+#    it does NOT apply migrations). This adds the Paddle provider id
+#    columns (paddleSubscriptionId / paddleTransactionId).
+npx prisma migrate deploy
+```
+
+### Paddle dashboard setup
+
+1. Create the product **DineDesk Basic** with a monthly price of USD 5.00
+   (price id `pri_01m8cq9pqm4t83zgp9s5psmdnn`) and copy the live API key
+   and client-side token into `PADDLE_API_KEY` and
+   `NEXT_PUBLIC_PADDLE_CLIENT_TOKEN`.
+2. Get the domain approved (Checkout → Checkout settings), then set the
+   default payment link — Paddle.js will not open a checkout without one.
+3. Register the webhook endpoint
+   `https://<your-domain>/api/webhooks/paddle` (Developer Tools →
+   Notifications) and subscribe it to: `subscription.created`,
+   `subscription.activated`, `subscription.updated`,
+   `subscription.canceled`, `subscription.past_due`,
+   `subscription.resumed`, `transaction.completed`,
+   `transaction.payment_failed`, `transaction.past_due`.
+4. Copy the notification destination's secret key into
+   `PADDLE_WEBHOOK_SECRET` in Vercel (Production).
+
+### Live testing
+
+1. Set the Paddle account to live, with the live keys and price above.
+2. Run the migrate step above against the production database.
+3. Subscribe from the admin panel and complete checkout with a real card.
+4. Check the admin **Subscription** page: status should become `ACTIVE`
+   only after the webhook arrives. The `/subscription/success` page says
+   "Payment received for verification" until then — that is expected.
+5. In the Paddle dashboard, cancel the subscription and confirm the
+   admin page flips to `CANCELLED`.
+
+### Webhook event handling
+
+| Paddle event | Effect |
+| --- | --- |
+| `subscription.created` | Links the Paddle subscription id to our pending subscription; stores the billing period. |
+| `subscription.activated` / `subscription.resumed` | Marks the subscription `ACTIVE`. |
+| `subscription.updated` | Syncs status and billing period from Paddle. |
+| `transaction.completed` | Records the payment (USD, at least the $5.00 list price, for our price id) and marks the subscription `ACTIVE`. |
+| `transaction.payment_failed` / `transaction.past_due` (renewals) | Marks the subscription `PAST_DUE` and the pending payment `FAILED`. |
+| `subscription.canceled` | Marks the subscription `CANCELLED`. |
+| `subscription.past_due` | Marks the subscription `PAST_DUE`. |
+| `subscription.paused` | Recorded, but the status is left unchanged (there is no `PAUSED` status in the schema). |
+| Anything else | Recorded and ignored; the endpoint still returns 200. |
+
 ## Password reset email
 
 Configure these server environment variables to enable password reset emails:

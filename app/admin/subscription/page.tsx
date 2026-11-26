@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/authtoke";
-import SubscriptionCheckoutButton from "./SubscriptionCheckoutButton";
+import PaddleCheckoutButton from "./PaddleCheckoutButton";
 import CancelPendingCheckoutButton from "./CancelPendingCheckoutButton";
+import { PADDLE_PRICE_ID } from "@/lib/payments/paddle";
 
 export default async function SubscriptionPage() {
     const user = await requireRole(["admin"]);
@@ -50,8 +51,9 @@ export default async function SubscriptionPage() {
             <div>
                 <h1 className="text-2xl font-bold tracking-tight">Subscription</h1>
                 <p className="mt-2 text-sm text-ink-soft">
-                    Pay securely on Safepay. Card details are entered only on
-                    Safepay&apos;s hosted checkout.
+                    Pay securely with Paddle (USD 5.00/month for
+                    international cards). Card details are entered only in
+                    Paddle&apos;s secure checkout.
                 </p>
             </div>
 
@@ -118,8 +120,9 @@ export default async function SubscriptionPage() {
                 ) : null}
 
                 <div className="mt-6">
-                    <SubscriptionCheckoutButton
+                    <PaddleCheckoutButton
                         disabled={!plan?.isActive || checkoutBlocked}
+                        priceId={PADDLE_PRICE_ID}
                     />
                     {subscription?.status === "PENDING" ? (
                         <CancelPendingCheckoutButton />
