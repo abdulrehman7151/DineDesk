@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import HomeClient from "@/app/Homeclinet";
+import { hasActiveSubscriptionOrExempt } from "@/lib/subscriptionGate";
 
 export const dynamic = "force-dynamic";
 
@@ -16,17 +17,48 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
 
     const restaurant = await prisma.restaurant.findUnique({
         where: { slug: restaurantSlug },
-        include: {
-            menuItems: {
-                include: { sizes: true },
-                orderBy: { createdAt: "desc" },
-            },
+        select: {
+            id: true,
+            name: true,
+            slug: true,
+            city: true,
+            address: true,
+            phone: true,
         },
     });
 
     if (!restaurant) {
         notFound();
     }
+
+    // No active subscription, no ordering: the guest menu is only served
+    // to restaurants that have paid (or the free test restaurant). The QR
+    // link itself keeps working — it lands here — but no menu is shown
+    // and no order can be placed.
+    if (!(await hasActiveSubscriptionOrExempt(restaurant.id))) {
+        return (
+            <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center p-8 text-center">
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-lg font-bold text-white">
+                    D
+                </span>
+                <h1 className="mt-4 text-2xl font-bold tracking-tight">
+                    {restaurant.name}
+                </h1>
+                <p className="mt-3 text-sm text-ink-soft">
+                    Online ordering for this restaurant is currently
+                    unavailable. The restaurant needs an active DineDesk
+                    subscription to take orders — please contact the
+                    restaurant directly to order.
+                </p>
+            </main>
+        );
+    }
+
+    const menuItems = await prisma.menuItem.findMany({
+        where: { restaurantId: restaurant.id },
+        include: { sizes: true },
+        orderBy: { createdAt: "desc" },
+    });
 
     const tableQrId =
         typeof tableIdParam === "string" && /^[a-f0-9]{32}$/i.test(tableIdParam)
@@ -58,7 +90,7 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
 
     return (
         <HomeClient
-            items={restaurant.menuItems}
+            items={menuItems}
             restaurant={{
                 id: restaurant.id,
                 name: restaurant.name,

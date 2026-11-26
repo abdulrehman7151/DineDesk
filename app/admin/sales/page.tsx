@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getUserFromToken } from "@/lib/authtoke";
 import SalesClient from "./SalesClient";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 export default async function AdminSales() {
     const user = await getUserFromToken();
@@ -8,6 +9,8 @@ export default async function AdminSales() {
     if (!user?.restaurantId) {
         return null;
     }
+
+    await requireActiveSubscription(user.restaurantId);
 
     // Load the last 12 months of served orders ONCE.
     // The client filters/aggregates by period locally.

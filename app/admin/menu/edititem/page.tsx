@@ -3,6 +3,7 @@ import { updateMenuAction } from "@/actions/editMenu";
 import { getUserFromToken } from "@/lib/authtoke";
 import MenuItemForm from "@/components/MenuItemForm";
 import { notFound, redirect } from "next/navigation";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 type EditItemPageProps = {
     searchParams?: Promise<{ id?: string }> | { id?: string };
@@ -11,6 +12,8 @@ type EditItemPageProps = {
 export default async function EditItemPage({ searchParams }: EditItemPageProps) {
     const user = await getUserFromToken();
     if (!user) redirect("/signin");
+
+    await requireActiveSubscription(user.restaurantId);
 
     const params = searchParams ? await searchParams : {};
     const { id } = params;

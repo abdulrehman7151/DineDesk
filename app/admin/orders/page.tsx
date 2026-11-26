@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 const statusTone: Record<string, string> = {
     PENDING: "bg-surface-warm text-ink-soft",
@@ -13,6 +14,8 @@ const statusTone: Record<string, string> = {
 export default async function AdminOrders() {
     const user = await getUserFromToken();
     if (!user) redirect("/signin");
+
+    await requireActiveSubscription(user.restaurantId);
 
     const orders = await prisma.order.findMany({
         where: { restaurantId: user.restaurantId },

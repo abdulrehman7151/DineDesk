@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
 import { getPakistanDayRange } from "@/lib/pakistanTime";
 import AnalyticsClient from "./AnalyticsClient";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export default async function AdminAnalytics() {
     if (!user) {
         notFound();
     }
+
+    await requireActiveSubscription(user.restaurantId);
 
     const now = new Date();
     // Last 90 Pakistan days, starting at PKT midnight 89 days ago.

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
 import KitchenClient from "@/app/kitchen/KitchenClient";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export default async function AdminKitchenPage() {
     if (!Number.isInteger(restaurantId) || restaurantId <= 0) {
         throw new Error("Invalid restaurant");
     }
+
+    await requireActiveSubscription(restaurantId);
 
     const orders = await prisma.order.findMany({
         where: {

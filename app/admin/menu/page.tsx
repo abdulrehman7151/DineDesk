@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import { getMenuItems } from "@/services/MenuServices";
 import MenuClient from "./MenuClient";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 export default async function AdminMenu() {
     const user = await getUserFromToken();
@@ -10,6 +11,8 @@ export default async function AdminMenu() {
     if (!user) {
         redirect("/signin");
     }
+
+    await requireActiveSubscription(user.restaurantId);
 
     const items = await getMenuItems(user.restaurantId);
 

@@ -2,12 +2,15 @@ import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
 import NewOrderForm from "./NewOrderForm";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 export default async function AdminNewOrder() {
     const user = await getUserFromToken();
 
     if (!user) redirect("/signin");
     if (user.role !== "admin") redirect("/kitchen");
+
+    await requireActiveSubscription(user.restaurantId);
 
     const [tables, items] = await Promise.all([
         prisma.table.findMany({

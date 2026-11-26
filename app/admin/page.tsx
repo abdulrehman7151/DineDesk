@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getPakistanDayRange } from "@/lib/pakistanTime";
 import { getPriceTier } from "@/lib/payments/paddle";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 const quickActions = [
     {
@@ -37,7 +38,11 @@ export default async function AdminDashboard() {
         notFound();
     }
 
-    // Subscription reminder only — never blocks access to the admin.
+    await requireActiveSubscription(user.restaurantId);
+
+    // The gate above already redirected restaurants without an ACTIVE
+    // subscription, so this lookup only ever comes back empty for the
+    // exempt test restaurant — it drives the reminder banner there.
     const activeSubscription = await prisma.subscription.findFirst({
         where: {
             restaurantId: user.restaurantId,
