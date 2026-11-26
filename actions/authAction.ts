@@ -34,14 +34,18 @@ export async function signup(
     prevState: SignupState,
     formData: FormData
 ): Promise<SignupState> {
-    const restaurantName = formData.get("restaurantName");
-    const phone = formData.get("phone");
-    const city = formData.get("city");
-    const address = formData.get("address");
-    const adminName = formData.get("adminName");
-    const email = formData.get("email");
-    const password = formData.get("password");
-    const confirmPassword = formData.get("confirmPassword");
+    // formData.get() returns FormDataEntryValue | null; coerce every value
+    // to a plain string up front so the later .length/.trim() uses and the
+    // bcrypt.hash() call type-check (a missing field becomes "" and is
+    // caught by the missing-fields check below, exactly as before).
+    const restaurantName = formData.get("restaurantName")?.toString() ?? "";
+    const phone = formData.get("phone")?.toString() ?? "";
+    const city = formData.get("city")?.toString() ?? "";
+    const address = formData.get("address")?.toString() ?? "";
+    const adminName = formData.get("adminName")?.toString() ?? "";
+    const email = formData.get("email")?.toString() ?? "";
+    const password = formData.get("password")?.toString() ?? "";
+    const confirmPassword = formData.get("confirmPassword")?.toString() ?? "";
 
 
     const missingFields: SignupField[] = [];
