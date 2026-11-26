@@ -135,6 +135,46 @@ const PERIOD = "month";
 // restaurant menu, not the subscription price).
 const MOCK_CURRENCY = "Rs";
 
+/* ------------------------------------------------------------------ */
+/* Live demo (landing page) — hardcoded sample data only. No backend,  */
+/* no real orders, no demo account.                                    */
+/* ------------------------------------------------------------------ */
+
+type DemoDish = {
+  id: string;
+  name: string;
+  desc: string;
+  price: number;
+  tint: string;
+  cat: string;
+};
+
+const DEMO_DISHES: DemoDish[] = [
+  { id: "pepperoni", name: "Pepperoni pizza", desc: "Mozzarella, pepperoni, oregano", price: 1000, tint: "bg-amber-100", cat: "Pizza" },
+  { id: "cheeseburger", name: "Cheese burger", desc: "Beef patty, cheddar, house sauce", price: 861, tint: "bg-rose-100", cat: "Burgers" },
+  { id: "truffle", name: "Truffle mushroom burger", desc: "Mushroom, truffle mayo", price: 950, tint: "bg-amber-100", cat: "Burgers" },
+  { id: "chicken-bowl", name: "Crispy chicken bowl", desc: "Crispy chicken, rice, slaw", price: 780, tint: "bg-emerald-100", cat: "Bowls" },
+  { id: "lemonade", name: "Mint lemonade", desc: "Fresh mint, lemon, soda", price: 320, tint: "bg-emerald-100", cat: "Drinks" },
+];
+
+const DEMO_CATS = ["All", "Pizza", "Burgers", "Bowls", "Drinks"];
+
+const DEMO_FLOW = [
+  { n: "01", title: "Scan the table QR", text: "Guests open the menu on their phone." },
+  { n: "02", title: "Browse & order", text: "Pick dishes and send the order." },
+  { n: "03", title: "Kitchen sees it instantly", text: "The order lands on the kitchen screen." },
+  { n: "04", title: "Track it live", text: "Guests watch it go from received to served." },
+];
+
+const DEMO_ADMIN_ORDERS = [
+  { id: "DEMO-001", table: "08", items: 2, total: 1861, status: "Preparing" },
+  { id: "DEMO-002", table: "03", items: 1, total: 950, status: "Served" },
+  { id: "DEMO-003", table: "11", items: 3, total: 2240, status: "Ready" },
+  { id: "DEMO-004", table: "05", items: 2, total: 1100, status: "Served" },
+];
+
+const DEMO_TRACK_STEPS = ["Order received", "In preparation", "Ready to serve", "Served"];
+
 const INCLUDED = [
   "QR-code ordering for every table",
   "Digital menu with categories, prices, and images",
@@ -259,6 +299,7 @@ export default function HomePage({
               ["Service", "#story"],
               ["Features", "#features"],
               ["How it works", "#how-it-works"],
+              ["Live demo", "#demo"],
               ["Pricing", "#pricing"],
             ].map(([label, href]) => (
               <Link
@@ -526,6 +567,56 @@ export default function HomePage({
         </div>
       </section>
 
+      {/* ------------------------------ Live demo ------------------------------ */}
+      <section id="demo" className="scroll-mt-20 border-t border-black/[0.07]">
+        <div className="mx-auto max-w-[1200px] px-6 py-28 lg:px-10 lg:py-36">
+          <p className="dd-mono text-[11px] uppercase tracking-[0.18em] text-[#8b8ba0]">
+            See what you get
+          </p>
+          <h2 className="dd-serif mt-5 max-w-[16ch] text-[clamp(2.5rem,5.5vw,4.5rem)] leading-[1.02] tracking-[-0.015em]">
+            Try the whole flow,{" "}
+            <em className="italic text-[var(--dd-accent)]">right here.</em>
+          </h2>
+          <p className="mt-6 max-w-md text-[15px] leading-7 text-[#5b5b70]">
+            No account, no setup. On the left, what the restaurant owner sees. On the
+            right, what a guest sees after scanning the table QR — tap around and place
+            a pretend order.
+          </p>
+
+          <ol className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {DEMO_FLOW.map((f) => (
+              <li
+                key={f.n}
+                className="rounded-2xl border border-black/[0.07] bg-white p-5"
+              >
+                <span className="dd-mono text-[11px] text-[var(--dd-accent)]">{f.n}</span>
+                <p className="mt-3 text-[15px] font-bold">{f.title}</p>
+                <p className="mt-1.5 text-[13px] leading-6 text-[#5b5b70]">{f.text}</p>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-10 grid items-start gap-8 lg:grid-cols-2 lg:gap-10">
+            <div>
+              <p className="dd-mono mb-4 text-[11px] uppercase tracking-[0.18em] text-[#8b8ba0]">
+                For the restaurant
+              </p>
+              <DemoAdminPanel />
+            </div>
+            <div>
+              <p className="dd-mono mb-4 text-center text-[11px] uppercase tracking-[0.18em] text-[#8b8ba0]">
+                For the guest
+              </p>
+              <DemoPhone />
+            </div>
+          </div>
+
+          <p className="mt-8 text-center text-xs text-[#8b8ba0]">
+            Demo data only — nothing is really ordered and no account is created.
+          </p>
+        </div>
+      </section>
+
       {/* ------------------------------- Pricing ------------------------------- */}
       <section id="pricing" className="scroll-mt-20 border-t border-black/[0.07]">
         <div className="mx-auto grid max-w-[1200px] items-center gap-14 px-6 py-28 lg:grid-cols-[1fr_0.9fr] lg:gap-24 lg:px-10 lg:py-36">
@@ -638,6 +729,358 @@ export default function HomePage({
         </div>
       </footer>
     </main>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Live demo components (landing page)                                 */
+/* ------------------------------------------------------------------ */
+
+function DemoAdminPanel() {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-black/[0.07] bg-white shadow-[0_24px_60px_-20px_rgba(18,18,31,0.18)]">
+      <div className="flex items-center justify-between bg-[#14142b] px-5 py-3.5 text-white">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--dd-accent)]">
+            <UtensilsCrossed size={13} />
+          </span>
+          <span className="text-[13px] font-bold">DineDesk</span>
+          <span className="hidden text-[11px] text-white/45 sm:inline">
+            Demo restaurant
+          </span>
+        </div>
+        <span className="text-[11px] text-white/45">Admin dashboard</span>
+      </div>
+
+      <div className="p-4 sm:p-5">
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { label: "Today's Revenue", value: "Rs. 18,450" },
+            { label: "Orders Today", value: "24" },
+            { label: "Active Tables", value: "6/10" },
+            { label: "Avg. Order Value", value: "Rs. 769" },
+          ].map((s) => (
+            <div
+              key={s.label}
+              className="rounded-xl border border-black/[0.06] bg-[#f5f5f8] p-3.5"
+            >
+              <p className="text-[11px] font-medium text-[#8b8ba0]">{s.label}</p>
+              <p className="mt-1 text-lg font-bold tracking-tight text-[#12121f]">
+                {s.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-bold">Recent Orders</p>
+            <span className="text-[11px] font-semibold text-[var(--dd-accent)]">
+              View all →
+            </span>
+          </div>
+          <ul className="mt-3 divide-y divide-black/[0.06]">
+            {DEMO_ADMIN_ORDERS.map((o) => (
+              <li
+                key={o.id}
+                className="flex items-center justify-between gap-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold">
+                    #{o.id}{" "}
+                    <span className="font-normal text-[#8b8ba0]">
+                      · Table {o.table}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-[#8b8ba0]">
+                    {o.items} item{o.items === 1 ? "" : "s"} · Rs.{" "}
+                    {o.total.toLocaleString()}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${o.status === "Served"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : o.status === "Ready"
+                        ? "bg-amber-100 text-amber-800"
+                        : "bg-[var(--dd-accent-tint)] text-[var(--dd-accent)]"
+                    }`}
+                >
+                  {o.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type DemoStep = "qr" | "menu" | "tracking";
+
+function DemoPhone() {
+  const [step, setStep] = useState<DemoStep>("qr");
+  const [cat, setCat] = useState("All");
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const [trackIdx, setTrackIdx] = useState(0);
+
+  const dishes = DEMO_DISHES.filter((d) => cat === "All" || d.cat === cat);
+  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
+  const cartTotal = DEMO_DISHES.reduce(
+    (sum, d) => sum + (cart[d.id] ?? 0) * d.price,
+    0
+  );
+
+  // The tracker advances on its own once the order is placed.
+  useEffect(() => {
+    if (step !== "tracking") return;
+    if (trackIdx >= DEMO_TRACK_STEPS.length - 1) return;
+    const t = setTimeout(
+      () => setTrackIdx((i) => Math.min(i + 1, DEMO_TRACK_STEPS.length - 1)),
+      2600
+    );
+    return () => clearTimeout(t);
+  }, [step, trackIdx]);
+
+  const add = (id: string) =>
+    setCart((c) => ({ ...c, [id]: (c[id] ?? 0) + 1 }));
+  const remove = (id: string) =>
+    setCart((c) => {
+      const next = { ...c };
+      const q = (next[id] ?? 0) - 1;
+      if (q <= 0) delete next[id];
+      else next[id] = q;
+      return next;
+    });
+  const placeOrder = () => {
+    if (cartCount === 0) return;
+    setTrackIdx(0);
+    setStep("tracking");
+  };
+  const reset = () => {
+    setCart({});
+    setTrackIdx(0);
+    setStep("qr");
+  };
+
+  const headerLabel =
+    step === "qr" ? "Scan the QR" : step === "menu" ? "Menu" : "Your order";
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="w-[280px] rounded-[2.2rem] border-[7px] border-[#12121f] bg-white p-3.5 shadow-[0_24px_60px_-20px_rgba(18,18,31,0.3)]">
+        <div className="flex items-center justify-between px-1">
+          <span className="dd-mono text-[10px] uppercase tracking-[0.14em] text-[#8b8ba0]">
+            Table 08
+          </span>
+          <span className="text-[10px] font-bold">{headerLabel}</span>
+        </div>
+
+        {step === "qr" && (
+          <div>
+            <div className="mx-auto mt-3 h-44 w-44 rounded-xl border border-black/[0.07] bg-white p-3">
+              <QrPattern />
+            </div>
+            <p className="dd-serif mt-4 text-center text-[22px] leading-tight">
+              Scan. Order. Enjoy.
+            </p>
+            <p className="mt-2 text-center text-[11px] leading-5 text-[#8b8ba0]">
+              Point your phone camera at the QR code on Table 08 to open the
+              menu.
+            </p>
+            <button
+              type="button"
+              onClick={() => setStep("menu")}
+              className="mt-4 w-full rounded-lg bg-[var(--dd-accent)] py-2.5 text-[12px] font-bold text-white transition hover:bg-[#82101a]"
+            >
+              I scanned it — show the menu
+            </button>
+          </div>
+        )}
+
+        {step === "menu" && (
+          <div>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {DEMO_CATS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCat(c)}
+                  className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${cat === c
+                      ? "bg-[var(--dd-accent)] text-white"
+                      : "bg-[#f1f1f6] text-[#5b5b70]"
+                    }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            <ul className="mt-3 space-y-2.5">
+              {dishes.map((d) => (
+                <li key={d.id} className="flex items-center gap-3">
+                  <span className={`h-11 w-11 shrink-0 rounded-lg ${d.tint}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] font-bold">{d.name}</p>
+                    <p className="mt-0.5 truncate text-[10px] text-[#8b8ba0]">
+                      {d.desc}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-bold">
+                      {MOCK_CURRENCY} {d.price}
+                    </p>
+                  </div>
+                  {(cart[d.id] ?? 0) === 0 ? (
+                    <button
+                      type="button"
+                      aria-label={`Add ${d.name}`}
+                      onClick={() => add(d.id)}
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--dd-accent)] text-xs font-bold text-white"
+                    >
+                      +
+                    </button>
+                  ) : (
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        aria-label={`Remove one ${d.name}`}
+                        onClick={() => remove(d.id)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f1f1f6] text-xs font-bold"
+                      >
+                        −
+                      </button>
+                      <span className="w-4 text-center text-[11px] font-bold">
+                        {cart[d.id]}
+                      </span>
+                      <button
+                        type="button"
+                        aria-label={`Add one more ${d.name}`}
+                        onClick={() => add(d.id)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--dd-accent)] text-xs font-bold text-white"
+                      >
+                        +
+                      </button>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 rounded-xl bg-[#f5f5f8] px-3 py-2.5">
+              <div className="flex items-center justify-between text-[11px] font-bold">
+                <span>
+                  {cartCount} item{cartCount === 1 ? "" : "s"}
+                </span>
+                <span>
+                  {MOCK_CURRENCY} {cartTotal.toLocaleString()}
+                </span>
+              </div>
+              <button
+                type="button"
+                disabled={cartCount === 0}
+                onClick={placeOrder}
+                className="mt-2 w-full rounded-lg bg-[var(--dd-accent)] py-2.5 text-[11px] font-bold text-white transition hover:bg-[#82101a] disabled:opacity-40"
+              >
+                Send order to kitchen
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStep("qr")}
+              className="mt-2 w-full text-center text-[11px] font-semibold text-[#8b8ba0] hover:text-[#12121f]"
+            >
+              ← Back to QR code
+            </button>
+          </div>
+        )}
+
+        {step === "tracking" && (
+          <div>
+            <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-3 text-center">
+              <p className="text-[12px] font-bold text-emerald-800">
+                Order sent to the kitchen
+              </p>
+              <p className="dd-mono mt-1 text-[10px] uppercase tracking-[0.14em] text-emerald-700">
+                Order #DEMO-001 · Table 08
+              </p>
+            </div>
+            <ul className="mt-3 space-y-2">
+              {DEMO_DISHES.filter((d) => (cart[d.id] ?? 0) > 0).map((d) => (
+                <li
+                  key={d.id}
+                  className="flex items-center justify-between text-[11px]"
+                >
+                  <span className="font-semibold">
+                    {cart[d.id]}× {d.name}
+                  </span>
+                  <span className="font-bold">
+                    {MOCK_CURRENCY}{" "}
+                    {(d.price * (cart[d.id] ?? 0)).toLocaleString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-2 flex items-center justify-between border-t border-black/[0.06] pt-2 text-[11px] font-bold">
+              <span>Total</span>
+              <span>
+                {MOCK_CURRENCY} {cartTotal.toLocaleString()}
+              </span>
+            </div>
+            <ul className="mt-4 space-y-3">
+              {DEMO_TRACK_STEPS.map((label, i) => {
+                const done = i < trackIdx;
+                const active = i === trackIdx;
+                return (
+                  <li key={label} className="flex items-center gap-3">
+                    <span
+                      className={`flex h-5 w-5 items-center justify-center rounded-full ${done
+                          ? "bg-emerald-100 text-emerald-700"
+                          : active
+                            ? "bg-[var(--dd-accent-tint)] text-[var(--dd-accent)]"
+                            : "border border-dashed border-black/20"
+                        }`}
+                    >
+                      {done ? (
+                        <Check size={11} strokeWidth={3} />
+                      ) : active ? (
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--dd-accent)]" />
+                      ) : null}
+                    </span>
+                    <span
+                      className={`text-[11px] ${done || active ? "font-semibold" : "text-[#a6a6b8]"
+                        }`}
+                    >
+                      {label}
+                    </span>
+                    {active && (
+                      <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-[var(--dd-accent)]">
+                        Live
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {trackIdx >= DEMO_TRACK_STEPS.length - 1 ? (
+              <p className="mt-4 text-center text-[12px] font-bold text-emerald-700">
+                Served — enjoy your meal!
+              </p>
+            ) : (
+              <p className="mt-4 text-center text-[11px] text-[#8b8ba0]">
+                Watching your order move, live…
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={reset}
+              className="mt-3 w-full rounded-lg border border-black/10 py-2.5 text-[11px] font-bold transition hover:border-[var(--dd-accent)] hover:text-[var(--dd-accent)]"
+            >
+              Start the demo again
+            </button>
+          </div>
+        )}
+      </div>
+      <p className="mt-4 text-center text-xs text-[#8b8ba0]">
+        Guest view — try it: scan, order, and watch it move.
+      </p>
+    </div>
   );
 }
 

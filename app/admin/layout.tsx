@@ -4,7 +4,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import ProfileDropdown from "@/components/ProfileDropdown";
-import NotificationsBell from "@/components/NotificationsBell";
 import MobileAdminNav from "@/components/MobileAdminNav";
 import { prisma } from "@/lib/prisma";
 
@@ -35,32 +34,6 @@ export default async function AdminLayout({
             select: { name: true, city: true },
         })
         : null;
-
-    const activeOrders = user
-        ? await prisma.order.findMany({
-            where: {
-                restaurantId: user.restaurantId,
-                status: { in: ["PENDING", "PREPARING"] },
-            },
-            select: {
-                id: true,
-                tableNumber: true,
-                total: true,
-                status: true,
-                createdAt: true,
-            },
-            orderBy: { createdAt: "desc" },
-            take: 10,
-        })
-        : [];
-
-    const notifications = activeOrders.map((order) => ({
-        id: order.id,
-        tableNumber: order.tableNumber,
-        total: order.total,
-        status: order.status,
-        createdAt: order.createdAt.toISOString(),
-    }));
 
     return (
         <div className="flex min-h-screen bg-surface text-ink">
@@ -136,9 +109,6 @@ export default async function AdminLayout({
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {/* Notification */}
-                            <NotificationsBell notifications={notifications} />
-
                             {/* Client dropdown */}
                             <ProfileDropdown
                                 initial={user?.email[0]}
