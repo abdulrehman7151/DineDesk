@@ -78,9 +78,11 @@ export default function TermsPage() {
         <section className="mt-10">
           <h2 className="text-xl font-bold">3. Subscriptions and billing</h2>
           <p className="mt-3 leading-relaxed text-ink-soft">
-            The Service is billed monthly. The subscription price is Rs 1,500 per
-            month for customers in Pakistan, and USD 5 per month for international
-            customers, whose payments are processed by Paddle. Billing renews
+            The Service is billed monthly. The subscription price is Rs 2,499 per
+            month for customers in Pakistan, and USD 39 per month for customers in
+            all other countries. All charges are made in US dollars: the Pakistan
+            price is charged as USD 9.00, and Paddle shows the USD 39 amount in
+            your local currency at checkout. Billing renews
             automatically each month until you cancel. You may cancel at any time
             from your account; your subscription stays active until the end of the
             current billing period, and no charge is made for the following period.

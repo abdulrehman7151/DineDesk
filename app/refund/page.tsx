@@ -36,9 +36,10 @@ export default function RefundPage() {
 
         <p className="mt-6 leading-relaxed text-ink-soft">
           DineDesk is a restaurant-management platform billed by monthly
-          subscription: Rs 1,500 per month for customers in Pakistan, and USD 5
-          per month for international customers (paid via Paddle). This policy
-          explains when a refund is available.
+          subscription: Rs 2,499 per month for customers in Pakistan (charged as
+          USD 9.00), and USD 39 per month for customers in all other countries
+          (charged in USD; Paddle shows the amount in your local currency at
+          checkout). This policy explains when a refund is available.
         </p>
 
         <section className="mt-10">

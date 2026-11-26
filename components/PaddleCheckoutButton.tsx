@@ -101,7 +101,7 @@ export default function PaddleCheckoutButton({
         }
         startTransition(async () => {
             try {
-                const result = await startPaddleSubscriptionCheckout();
+                const result = await startPaddleSubscriptionCheckout(priceId);
 
                 if (!("reference" in result)) {
                     setMessage(

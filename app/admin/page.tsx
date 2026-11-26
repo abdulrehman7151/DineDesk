@@ -1,9 +1,11 @@
 import React from "react";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { requireRole } from "@/lib/authtoke";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getPakistanDayRange } from "@/lib/pakistanTime";
+import { getPriceTier } from "@/lib/payments/paddle";
 
 const quickActions = [
     {
@@ -43,6 +45,11 @@ export default async function AdminDashboard() {
         },
         select: { id: true },
     });
+
+    // The price shown depends on where the visitor is.
+    const priceTier = getPriceTier(
+        (await headers()).get("x-vercel-ip-country")
+    );
 
     const now = new Date();
     const topSellingStart = new Date(now);
@@ -173,8 +180,9 @@ export default async function AdminDashboard() {
                     <p className="text-sm font-semibold text-ink">
                         Your restaurant does not have an active subscription yet.
                         <span className="ml-1 font-normal text-ink-soft">
-                            Subscribe for Rs. 1,500/month to keep billing up to
-                            date.
+                            Subscribe for {priceTier.displayCurrency}{" "}
+                            {priceTier.displayAmount}/month to keep billing up
+                            to date.
                         </span>
                     </p>
                     <Link

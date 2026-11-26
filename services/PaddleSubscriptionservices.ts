@@ -2,6 +2,7 @@ import "server-only";
 
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
+import type { PriceTier } from "@/lib/payments/paddle";
 
 // Creates the local PENDING subscription (and its PENDING payment) for a
 // Paddle checkout. Unlike the SafePay service, this does not call out to
@@ -10,7 +11,8 @@ import { prisma } from "@/lib/prisma";
 // data so the Paddle webhook can link the payment back to this row.
 export async function startPaddleSubscriptionCheckoutService(
     restaurantId: number,
-    customerEmail: string
+    customerEmail: string,
+    tier: PriceTier
 ) {
     const plan = await prisma.subscriptionPlan.findUnique({
         where: { productId: "dinedesk-basic" },
@@ -48,6 +50,9 @@ export async function startPaddleSubscriptionCheckoutService(
 
     const reference = `dinedesk_${randomUUID()}`;
 
+    // The pending payment records the tier being bought (USD amount), not
+    // the plan row's old PKR price. The webhook overwrites it with the
+    // real charged total when the payment completes.
     await prisma.subscription.create({
         data: {
             restaurantId,
@@ -56,8 +61,8 @@ export async function startPaddleSubscriptionCheckoutService(
             status: "PENDING",
             payments: {
                 create: {
-                    amount: plan.price,
-                    currency: plan.currency,
+                    amount: tier.amountMinor,
+                    currency: tier.currency,
                     status: "PENDING",
                 },
             },

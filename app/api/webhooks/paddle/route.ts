@@ -3,11 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, SubscriptionStatus } from "@prisma/client";
 import { verifyPaddleWebhookSignature } from "@/lib/payments/paddle-webhook";
-import {
-    PADDLE_PRICE_AMOUNT_MINOR,
-    PADDLE_PRICE_CURRENCY,
-    PADDLE_PRICE_ID,
-} from "@/lib/payments/paddle";
+import { getPriceTierByPriceId } from "@/lib/payments/paddle";
 
 export const runtime = "nodejs";
 
@@ -274,21 +270,29 @@ async function applyEvent(event: PaddleWebhookEvent) {
             const currency = text(data.currency_code)?.toUpperCase();
             const total = totals ? integer(totals.total) : null;
 
-            // The transaction must be for our price, in USD, and at least
-            // the list price (tax can push the charged total above it).
+            // The transaction must be for one of our prices, in USD, and at
+            // least the list price of that tier (tax can push the charged
+            // total above it). Paddle always sends the items for a
+            // subscription checkout; if it ever sends none, fall back to
+            // the cheapest tier's amount as the floor.
             const items = Array.isArray(data.items) ? data.items : [];
-            const priceMatches =
-                items.length === 0 ||
-                items.some(
-                    (item) =>
-                        isRecord(item) && item.price_id === PADDLE_PRICE_ID
-                );
+            const matchedTier =
+                items
+                    .map((item) =>
+                        isRecord(item) &&
+                        typeof item.price_id === "string"
+                            ? getPriceTierByPriceId(item.price_id)
+                            : null
+                    )
+                    .find((tier) => tier !== null) ?? null;
+            const priceMatches = items.length === 0 || matchedTier !== null;
+            const minimumAmount = matchedTier ? matchedTier.amountMinor : 900;
 
             if (
                 transactionId &&
-                currency === PADDLE_PRICE_CURRENCY &&
+                currency === "USD" &&
                 total !== null &&
-                total >= PADDLE_PRICE_AMOUNT_MINOR &&
+                total >= minimumAmount &&
                 priceMatches
             ) {
                 const subscription = await resolveSubscription(transaction);
@@ -357,6 +361,7 @@ async function applyEvent(event: PaddleWebhookEvent) {
                         receivedAmount: total,
                         receivedCurrency: currency,
                         priceMatches,
+                        matchedPriceId: matchedTier?.paddlePriceId ?? null,
                     }
                 );
             }

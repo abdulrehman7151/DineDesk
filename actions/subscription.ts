@@ -3,6 +3,7 @@
 
 import { requireRole } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
+import { getPriceTierByPriceId } from "@/lib/payments/paddle";
 import { startBasicSubscriptionCheckoutService } from "@/services/Subscriptionservices";
 import { startPaddleSubscriptionCheckoutService } from "@/services/PaddleSubscriptionservices";
 
@@ -43,7 +44,7 @@ export async function startBasicSubscriptionCheckout() {
     }
 }
 
-export async function startPaddleSubscriptionCheckout() {
+export async function startPaddleSubscriptionCheckout(priceId: string) {
     try {
         const user = await requireRole(["admin"]);
 
@@ -54,9 +55,20 @@ export async function startPaddleSubscriptionCheckout() {
             };
         }
 
+        // Never trust the price id from the browser: only the two prices
+        // we sell can start a checkout.
+        const tier = getPriceTierByPriceId(priceId);
+        if (!tier) {
+            return {
+                success: false,
+                message: "That subscription price is not available.",
+            };
+        }
+
         const result = await startPaddleSubscriptionCheckoutService(
             user.restaurantId,
-            user.email
+            user.email,
+            tier
         );
 
         return result;
