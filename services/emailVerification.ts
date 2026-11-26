@@ -18,13 +18,38 @@ function generateCode(): string {
     return String(randomInt(0, 1000000)).padStart(6, "0");
 }
 
-function verificationEmailHtml(code: string): string {
+function verificationEmailHtml(email: string, code: string): string {
+    const verifyUrl = `https://dinedesk-omega.vercel.app/verify-email?email=${encodeURIComponent(email)}&code=${code}`;
+    const digitBoxes = code
+        .split("")
+        .map(
+            (digit) =>
+                `<td align="center" style="width:48px;height:56px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-radius:10px;font-size:28px;font-weight:700;line-height:56px;color:#0f172a;">${digit}</td>`
+        )
+        .join('<td style="width:8px;"></td>');
     return `
-        <h2>Your DineDesk verification code</h2>
-        <p>Use this code to verify your email address:</p>
-        <p style="font-size:28px;font-weight:bold;letter-spacing:6px;">${code}</p>
-        <p>This code expires in 15 minutes.</p>
-        <p>If you didn't create a DineDesk account, ignore this email.</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef2f7;margin:0;padding:0;">
+            <tr>
+                <td align="center" style="padding:32px 16px;">
+                    <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:100%;max-width:480px;background-color:#ffffff;border-radius:12px;">
+                        <tr>
+                            <td style="padding:32px 24px 28px;text-align:center;font-family:Arial,Helvetica,sans-serif;">
+                                <p style="margin:0 0 20px;font-size:15px;font-weight:700;color:#0f172a;">DineDesk</p>
+                                <p style="margin:0 0 16px;font-size:13px;color:#64748b;">Code requested</p>
+                                <table role="presentation" align="center" cellpadding="0" cellspacing="0">
+                                    <tr>${digitBoxes}</tr>
+                                </table>
+                                <p style="margin:24px 0 0;">
+                                    <a href="${verifyUrl}" style="display:inline-block;background-color:#1a73e8;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:12px 28px;border-radius:999px;">Copy code</a>
+                                </p>
+                                <p style="margin:20px 0 0;font-size:13px;color:#64748b;">This code expires in 15 minutes.</p>
+                                <p style="margin:16px 0 0;font-size:12px;color:#94a3b8;">If you didn't create a DineDesk account, you can ignore this email.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
     `;
 }
 
@@ -47,8 +72,8 @@ async function sendVerificationCode(email: string): Promise<void> {
     try {
         await sendEmail({
             to: email,
-            subject: "Your DineDesk verification code",
-            html: verificationEmailHtml(code),
+            subject: "Confirm Email",
+            html: verificationEmailHtml(email, code),
         });
     } catch (error) {
         // Don't leave a code behind that the user never received.

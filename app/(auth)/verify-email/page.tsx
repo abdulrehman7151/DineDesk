@@ -29,7 +29,9 @@ const VerifyEmailForm = () => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [email, setEmail] = useState(searchParams.get("email") ?? "");
-    const [code, setCode] = useState("");
+    const [code, setCode] = useState(
+        (searchParams.get("code") ?? "").replace(/\D/g, "").slice(0, 6)
+    );
 
     const [verifyState, verifyFormAction, verifyPending] = useActionState(
         verifyEmailAction,
