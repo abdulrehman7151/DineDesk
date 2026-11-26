@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/authtoke";
-import PaddleCheckoutButton from "./PaddleCheckoutButton";
+import PaddleCheckoutButton from "@/components/PaddleCheckoutButton";
 import CancelPendingCheckoutButton from "./CancelPendingCheckoutButton";
 import { PADDLE_PRICE_ID } from "@/lib/payments/paddle";
 
