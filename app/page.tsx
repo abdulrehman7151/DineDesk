@@ -602,12 +602,21 @@ export default function HomePage() {
               Built with Next.js, Prisma, MariaDB, and Cloudinary.
             </p>
           </div>
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center gap-5">
             <Link href="/signin" className="transition hover:text-[#12121f]">
               Sign in
             </Link>
             <Link href="/signup" className="transition hover:text-[#12121f]">
               Create account
+            </Link>
+            <Link href="/terms" className="transition hover:text-[#12121f]">
+              Terms
+            </Link>
+            <Link href="/privacy" className="transition hover:text-[#12121f]">
+              Privacy
+            </Link>
+            <Link href="/refund" className="transition hover:text-[#12121f]">
+              Refund policy
             </Link>
             <Link href="#top" className="inline-flex items-center gap-1 transition hover:text-[#12121f]">
               Back to top <ArrowUp size={12} />
