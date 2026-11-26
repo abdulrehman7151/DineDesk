@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Instrument_Serif, JetBrains_Mono, Manrope } from "next/font/google";
 import { Eye, EyeOff, UtensilsCrossed } from "lucide-react";
-import { signInAction } from "@/actions/authAction";
+import { signInAction, type SigninState } from "@/actions/authAction";
 
 const serif = Instrument_Serif({
     subsets: ["latin"],
@@ -16,7 +16,7 @@ const serif = Instrument_Serif({
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
-const initialState = {
+const initialState: SigninState = {
     success: false,
     message: "",
     role: "",
