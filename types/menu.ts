@@ -27,6 +27,11 @@ export type Restaurant = {
     city: string;
     address: string;
     phone: string;
+    // Opening/closing hours as HH:MM (24-hour) strings, or null when the
+    // owner has not set them. Optional so other constructors of this type
+    // keep compiling; the guest page passes the real values.
+    openingTime?: string | null;
+    closingTime?: string | null;
 };
 
 export type MenuItemWithRestaurant = MenuItem & {

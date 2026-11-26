@@ -25,6 +25,8 @@ model Restaurant {
   city      String
   address   String
   phone     String
+  openingTime String?
+  closingTime String?
   createdAt DateTime         @default(now())
   ownerId   Int
   owner     User             @relation("RestaurantOwner", fields: [ownerId], references: [id], onDelete: Cascade)

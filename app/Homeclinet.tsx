@@ -31,6 +31,25 @@ type TrackedOrder = {
     key: number;
 };
 
+// Opening/closing hours are stored as HH:MM (24-hour) strings.
+// "23:00" -> "11 PM", "09:30" -> "9:30 AM".
+function formatHour(time: string): string {
+    const [h, m] = time.split(":").map(Number);
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const ampm = h < 12 ? "AM" : "PM";
+    return m === 0
+        ? `${hour12} ${ampm}`
+        : `${hour12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+// "09:00" -> "9:00 AM", "23:00" -> "11:00 PM".
+function formatTime(time: string): string {
+    const [h, m] = time.split(":").map(Number);
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    const ampm = h < 12 ? "AM" : "PM";
+    return `${hour12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
 export default function HomeClient({
     items,
     restaurant,
@@ -266,7 +285,10 @@ export default function HomeClient({
 
                             <div className="mt-5 flex flex-wrap gap-2">
                                 <span className="rounded-full bg-success-bg px-3 py-1.5 text-xs font-bold text-success-text">
-                                    ● Open · until 11 PM
+                                    ● Open · until{" "}
+                                    {restaurant.closingTime
+                                        ? formatHour(restaurant.closingTime)
+                                        : "11 PM"}
                                 </span>
                                 <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
                                     📍 {restaurant.city} · {restaurant.address}
@@ -425,7 +447,11 @@ export default function HomeClient({
                         Fresh food prepared with quality ingredients.
                     </p>
                     <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-white/70">
-                        <span>Open 11:00 AM – 11:00 PM</span>
+                        <span>
+                            {restaurant.openingTime && restaurant.closingTime
+                                ? `Open ${formatTime(restaurant.openingTime)} – ${formatTime(restaurant.closingTime)}`
+                                : "Open 11:00 AM – 11:00 PM"}
+                        </span>
                         <span>
                             {restaurant.city} · {restaurant.address}
                         </span>

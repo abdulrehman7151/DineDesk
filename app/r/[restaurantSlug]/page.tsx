@@ -24,6 +24,8 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
             city: true,
             address: true,
             phone: true,
+            openingTime: true,
+            closingTime: true,
         },
     });
 
@@ -98,6 +100,8 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
                 city: restaurant.city,
                 address: restaurant.address,
                 phone: restaurant.phone,
+                openingTime: restaurant.openingTime,
+                closingTime: restaurant.closingTime,
             }}
             tableId={table?.qrToken ?? null}
             tableNumber={table?.number ?? null}
