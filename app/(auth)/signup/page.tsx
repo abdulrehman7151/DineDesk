@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useActionState, useEffect, useState, startTransition } from "react";
+import React, { useActionState, useEffect, useRef, useState, startTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Instrument_Serif, JetBrains_Mono, Manrope } from "next/font/google";
@@ -18,6 +18,28 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 export const initialState: SignupState = { success: false, message: "" };
 
+type FormValues = {
+    restaurantName: string;
+    phone: string;
+    city: string;
+    address: string;
+    adminName: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+};
+
+const emptyFormValues: FormValues = {
+    restaurantName: "",
+    phone: "",
+    city: "",
+    address: "",
+    adminName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+};
+
 const STEPS = [
     { n: "01", title: "Restaurant profile", note: "Name, address, contact" },
     { n: "02", title: "Admin account", note: "Your login credentials" },
@@ -33,6 +55,35 @@ const SignUpPage = () => {
     const [showConfirm, setShowConfirm] = useState(false);
 
     const [state, formAction, isPending] = useActionState(signup, initialState);
+
+    // The fields are controlled so a failed submission does not wipe them:
+    // React resets uncontrolled inputs when a form action completes.
+    const [values, setValues] = useState<FormValues>(emptyFormValues);
+    const lastHandledState = useRef(state);
+
+    // On a failed submission, clear only the fields the server flagged as
+    // invalid. Every other value the user typed stays filled in.
+    useEffect(() => {
+        if (lastHandledState.current === state) return;
+        lastHandledState.current = state;
+        if (!state.success && state.message && state.invalidFields?.length) {
+            const invalid = new Set(state.invalidFields);
+            setValues((prev) => {
+                const next = { ...prev };
+                (Object.keys(next) as (keyof FormValues)[]).forEach((key) => {
+                    if (invalid.has(key)) next[key] = "";
+                });
+                return next;
+            });
+        }
+    }, [state]);
+
+    const updateField =
+        (name: keyof FormValues) =>
+        (e: React.ChangeEvent<HTMLInputElement>) => {
+            const value = e.target.value;
+            setValues((prev) => ({ ...prev, [name]: value }));
+        };
 
     useEffect(() => {
         if (state.success) {
@@ -166,6 +217,8 @@ const SignUpPage = () => {
                                     type="text"
                                     required
                                     placeholder="The Urban Kitchen"
+                                    value={values.restaurantName}
+                                    onChange={updateField("restaurantName")}
                                     className={inputClass}
                                 />
                             </div>
@@ -182,6 +235,8 @@ const SignUpPage = () => {
                                         required
                                         autoComplete="tel"
                                         placeholder="+92 300 1234567"
+                                        value={values.phone}
+                                        onChange={updateField("phone")}
                                         className={inputClass}
                                     />
                                 </div>
@@ -196,6 +251,8 @@ const SignUpPage = () => {
                                         type="text"
                                         required
                                         placeholder="Islamabad"
+                                        value={values.city}
+                                        onChange={updateField("city")}
                                         className={inputClass}
                                     />
                                 </div>
@@ -211,6 +268,8 @@ const SignUpPage = () => {
                                     type="text"
                                     required
                                     placeholder="F-7 Markaz, Islamabad"
+                                    value={values.address}
+                                    onChange={updateField("address")}
                                     className={inputClass}
                                 />
                             </div>
@@ -239,6 +298,8 @@ const SignUpPage = () => {
                                     required
                                     autoComplete="name"
                                     placeholder="Abdul Rehman"
+                                    value={values.adminName}
+                                    onChange={updateField("adminName")}
                                     className={inputClass}
                                 />
                             </div>
@@ -254,6 +315,8 @@ const SignUpPage = () => {
                                     required
                                     autoComplete="email"
                                     placeholder="admin@restaurant.com"
+                                    value={values.email}
+                                    onChange={updateField("email")}
                                     className={inputClass}
                                 />
                             </div>
@@ -271,6 +334,8 @@ const SignUpPage = () => {
                                             required
                                             autoComplete="new-password"
                                             placeholder="Create a password"
+                                            value={values.password}
+                                            onChange={updateField("password")}
                                             className={`${inputClass} pr-11`}
                                         />
                                         <button
@@ -296,6 +361,8 @@ const SignUpPage = () => {
                                             required
                                             autoComplete="new-password"
                                             placeholder="Confirm your password"
+                                            value={values.confirmPassword}
+                                            onChange={updateField("confirmPassword")}
                                             className={`${inputClass} pr-11`}
                                         />
                                         <button

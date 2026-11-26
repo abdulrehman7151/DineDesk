@@ -5,11 +5,22 @@ import { cookies } from "next/headers";
 import { createUserAndRestaurant, SignIn } from "@/services/Authservices";
 import { requestEmailVerification } from "@/services/emailVerification";
 
+export type SignupField =
+    | "restaurantName"
+    | "phone"
+    | "city"
+    | "address"
+    | "adminName"
+    | "email"
+    | "password"
+    | "confirmPassword";
+
 export type SignupState = {
     success: boolean;
     message: string;
     email?: string;
     needsVerification?: boolean;
+    invalidFields?: SignupField[];
 };
 
 export type SigninState = {
@@ -33,27 +44,29 @@ export async function signup(
     const confirmPassword = formData.get("confirmPassword");
 
 
-    if (
-        typeof restaurantName !== "string" ||
-        typeof phone !== "string" ||
-        typeof city !== "string" ||
-        typeof address !== "string" ||
-        typeof adminName !== "string" ||
-        typeof email !== "string" ||
-        typeof password !== "string" ||
-        typeof confirmPassword !== "string" ||
-        !restaurantName.trim() ||
-        !phone.trim() ||
-        !city.trim() ||
-        !address.trim() ||
-        !adminName.trim() ||
-        !email.trim() ||
-        !password ||
-        !confirmPassword
-    ) {
+    const missingFields: SignupField[] = [];
+    if (typeof restaurantName !== "string" || !restaurantName.trim())
+        missingFields.push("restaurantName");
+    if (typeof phone !== "string" || !phone.trim())
+        missingFields.push("phone");
+    if (typeof city !== "string" || !city.trim())
+        missingFields.push("city");
+    if (typeof address !== "string" || !address.trim())
+        missingFields.push("address");
+    if (typeof adminName !== "string" || !adminName.trim())
+        missingFields.push("adminName");
+    if (typeof email !== "string" || !email.trim())
+        missingFields.push("email");
+    if (typeof password !== "string" || !password)
+        missingFields.push("password");
+    if (typeof confirmPassword !== "string" || !confirmPassword)
+        missingFields.push("confirmPassword");
+
+    if (missingFields.length > 0) {
         return {
             success: false,
             message: "Please fill in all fields.",
+            invalidFields: missingFields,
         };
     }
 
@@ -61,6 +74,7 @@ export async function signup(
         return {
             success: false,
             message: "Passwords do not match.",
+            invalidFields: ["password", "confirmPassword"],
         };
     }
 
@@ -68,6 +82,7 @@ export async function signup(
         return {
             success: false,
             message: "Password must be at least 8 characters.",
+            invalidFields: ["password", "confirmPassword"],
         };
     }
 
@@ -114,6 +129,10 @@ export async function signup(
             return {
                 success: false,
                 message: error.message,
+                invalidFields:
+                    error.message === "This email is already registered."
+                        ? ["email"]
+                        : undefined,
             };
         }
 
