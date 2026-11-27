@@ -14,6 +14,14 @@ import "server-only";
 // longer sold. These are Paddle catalog ids, not secrets, and are safe to
 // expose to the browser — the client checkout button receives the price id
 // as a prop from the subscription page.
+//
+// Sandbox: each price id below can be overridden with an environment
+// variable (NEXT_PUBLIC_PADDLE_PRICE_PAKISTAN,
+// NEXT_PUBLIC_PADDLE_PRICE_UNITED_STATES,
+// NEXT_PUBLIC_PADDLE_PRICE_INTERNATIONAL), set on the Preview environment
+// in Vercel, so a preview deployment can point at the Paddle sandbox
+// catalog while production keeps the live ids below. Without those
+// variables the live ids are used.
 export const PADDLE_PRODUCT_ID = "pro_01m8cq886aepj07e7p5jtb8abk";
 
 export type PriceTierKey = "pakistan" | "unitedStates" | "international";
@@ -35,10 +43,21 @@ export type PriceTier = {
     displayNote: string;
 };
 
+// A Paddle price id for one tier: the environment override wins when set
+// (a Preview deployment pointed at the sandbox catalog), otherwise the
+// live catalog id.
+function envPriceId(envName: string, liveId: string): string {
+    const override = process.env[envName];
+    return override && override.length > 0 ? override : liveId;
+}
+
 export const PRICE_TIERS: Record<PriceTierKey, PriceTier> = {
     pakistan: {
         key: "pakistan",
-        paddlePriceId: "pri_01m8cw8va4mh23w73kvmwabvxp",
+        paddlePriceId: envPriceId(
+            "NEXT_PUBLIC_PADDLE_PRICE_PAKISTAN",
+            "pri_01m8cw8va4mh23w73kvmwabvxp"
+        ),
         amountMinor: 900,
         currency: "USD",
         displayCurrency: "Rs",
@@ -47,7 +66,10 @@ export const PRICE_TIERS: Record<PriceTierKey, PriceTier> = {
     },
     unitedStates: {
         key: "unitedStates",
-        paddlePriceId: "pri_01m8cvygz883bdv0nzees2r69g",
+        paddlePriceId: envPriceId(
+            "NEXT_PUBLIC_PADDLE_PRICE_UNITED_STATES",
+            "pri_01m8cvygz883bdv0nzees2r69g"
+        ),
         amountMinor: 3900,
         currency: "USD",
         displayCurrency: "$",
@@ -57,7 +79,10 @@ export const PRICE_TIERS: Record<PriceTierKey, PriceTier> = {
     },
     international: {
         key: "international",
-        paddlePriceId: "pri_01m8cvyx049w3vrms5axtknfjq",
+        paddlePriceId: envPriceId(
+            "NEXT_PUBLIC_PADDLE_PRICE_INTERNATIONAL",
+            "pri_01m8cvyx049w3vrms5axtknfjq"
+        ),
         amountMinor: 2500,
         currency: "USD",
         displayCurrency: "$",

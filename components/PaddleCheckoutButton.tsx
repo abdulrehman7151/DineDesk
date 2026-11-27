@@ -20,6 +20,9 @@ type PaddleEvent = {
 declare global {
     interface Window {
         Paddle?: {
+            Environment: {
+                set: (environment: "sandbox" | "production") => void;
+            };
             Initialize: (options: {
                 token: string;
                 eventCallback?: (event: PaddleEvent) => void;
@@ -72,6 +75,15 @@ export default function PaddleCheckoutButton({
         }
         loadPaddleScript()
             .then(() => {
+                // Sandbox deployments (NEXT_PUBLIC_PADDLE_ENV=sandbox,
+                // set on the Preview environment in Vercel) must switch
+                // Paddle.js to the sandbox environment before
+                // initializing, so the checkout opens against the
+                // sandbox catalog with test cards. Production omits
+                // the variable and stays live.
+                if (process.env.NEXT_PUBLIC_PADDLE_ENV === "sandbox") {
+                    window.Paddle?.Environment.set("sandbox");
+                }
                 window.Paddle?.Initialize({
                     token,
                     eventCallback: (event) => {
