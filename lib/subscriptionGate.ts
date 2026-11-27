@@ -10,7 +10,9 @@ import { prisma } from "@/lib/prisma";
 // flag, no toggle, no other restaurant is exempt.
 // - eastern-cusine: the user's own restaurant.
 // - dd-test-kitchen: the throwaway end-to-end test account, so the full
-//   app can be tested live without paying.
+//   app can be tested live without paying. (Redeploy trigger: the
+//   exemption did not take effect on the first push, so this comment
+//   forces a fresh deployment.)
 export const FREE_RESTAURANT_SLUGS = ["eastern-cusine", "dd-test-kitchen"];
 
 // True when the restaurant may use DineDesk without paying: either it is
