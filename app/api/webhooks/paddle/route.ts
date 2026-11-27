@@ -202,10 +202,43 @@ async function applyEvent(event: PaddleWebhookEvent) {
             }
         }
 
-        if (
-            eventType === "subscription.activated" ||
-            eventType === "subscription.resumed"
-        ) {
+        if (eventType === "subscription.activated") {
+            const subscription = await resolveSubscription(transaction);
+            if (subscription) {
+                await transaction.subscription.update({
+                    where: { id: subscription.id },
+                    data: {
+                        status: "ACTIVE",
+                        cancelledAt: null,
+                        ...(providerSubscriptionId
+                            ? {
+                                  paddleSubscriptionId:
+                                      providerSubscriptionId,
+                              }
+                            : {}),
+                        ...period,
+                    },
+                });
+                // Paddle only activates a subscription once its payment
+                // has gone through. If the matching transaction.completed
+                // event was missed, the pending payment would otherwise
+                // stay PENDING forever even though the subscription is
+                // ACTIVE. Mark it paid (the amount stays the tier price;
+                // transaction.completed overwrites it with the real
+                // charged total when it runs).
+                const pendingPayment = subscription.payments.find(
+                    (payment) => payment.status === "PENDING"
+                );
+                if (pendingPayment) {
+                    await transaction.payment.update({
+                        where: { id: pendingPayment.id },
+                        data: { status: "SUCCEEDED", paidAt: new Date() },
+                    });
+                }
+            }
+        }
+
+        if (eventType === "subscription.resumed") {
             const subscription = await resolveSubscription(transaction);
             if (subscription) {
                 await transaction.subscription.update({

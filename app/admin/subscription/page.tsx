@@ -6,6 +6,38 @@ import { pendingCheckoutCutoff } from "@/lib/orderLifecycle";
 import PaddleCheckoutButton from "@/components/PaddleCheckoutButton";
 import { getPriceTier } from "@/lib/payments/paddle";
 
+// Status badge colours, matching the order-status palette.
+const SUBSCRIPTION_STATUS_TONE: Record<string, string> = {
+    ACTIVE: "bg-emerald-100 text-emerald-800 border border-emerald-200",
+    PENDING: "bg-amber-100 text-amber-800 border border-amber-200",
+    PAST_DUE: "bg-red-100 text-red-700 border border-red-200",
+    CANCELLED: "bg-zinc-100 text-zinc-600 border border-zinc-200",
+    EXPIRED: "bg-zinc-100 text-zinc-600 border border-zinc-200",
+};
+
+function subscriptionStatusTone(status: string): string {
+    return (
+        SUBSCRIPTION_STATUS_TONE[status] ??
+        "bg-surface-warm text-ink-soft border border-hairline"
+    );
+}
+
+// Friendly label for a stored payment status.
+function paymentStatusLabel(status: string): string {
+    switch (status) {
+        case "SUCCEEDED":
+            return "Paid";
+        case "PENDING":
+            return "Pending";
+        case "FAILED":
+            return "Failed";
+        case "REFUNDED":
+            return "Refunded";
+        default:
+            return status;
+    }
+}
+
 export default async function SubscriptionPage() {
     const user = await requireRole(["admin"]);
     if (!user) {
@@ -65,6 +97,16 @@ export default async function SubscriptionPage() {
     const checkoutBlocked = blockingSubscription !== null;
     const lastPayment = subscription?.payments[0];
 
+    // An ACTIVE subscription has been paid for. If the stored payment
+    // row is still PENDING (its transaction.completed event was missed),
+    // show it as paid rather than confusing the admin.
+    const lastPaymentStatus =
+        lastPayment &&
+        subscription.status === "ACTIVE" &&
+        lastPayment.status === "PENDING"
+            ? "SUCCEEDED"
+            : lastPayment?.status;
+
     return (
         <section className="mx-auto max-w-2xl space-y-6">
             <div>
@@ -99,7 +141,11 @@ export default async function SubscriptionPage() {
                     <div className="mt-4 space-y-1 text-sm text-ink-soft">
                         <p>
                             Current status:{" "}
-                            <strong>{subscription.status}</strong>
+                            <span
+                                className={`rounded-full border px-2.5 py-1 text-xs font-bold ${subscriptionStatusTone(subscription.status)}`}
+                            >
+                                {subscription.status}
+                            </span>
                         </p>
                         {subscription.currentPeriodEnd ? (
                             <p>
@@ -114,11 +160,11 @@ export default async function SubscriptionPage() {
                                 )}
                             </p>
                         ) : null}
-                        {lastPayment ? (
+                        {lastPayment && lastPaymentStatus ? (
                             <p>
                                 Last payment: {lastPayment.currency}{" "}
                                 {(lastPayment.amount / 100).toLocaleString()} ·{" "}
-                                {lastPayment.status}
+                                {paymentStatusLabel(lastPaymentStatus)}
                                 {lastPayment.paidAt
                                     ? ` · ${lastPayment.paidAt.toLocaleDateString(
                                           "en-PK",
