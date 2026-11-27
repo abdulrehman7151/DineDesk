@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 export type OrderStatusResult =
     | {
           success: true;
-          status: "PENDING" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
+          status: "PENDING" | "PREPARING" | "READY" | "SERVED" | "COMPLETED" | "EXPIRED" | "CANCELLED";
           total: number;
           itemCount: number;
       }
