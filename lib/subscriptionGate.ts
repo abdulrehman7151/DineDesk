@@ -3,12 +3,15 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
-// The user's own test restaurant. It is free forever and is exempt from
-// the subscription paywall, in the admin area and on the guest menu.
-// Identified by slug — the same slug in its guest-menu URL /r/eastern-cusine.
-// This is a single hardcoded exemption, not a general bypass: no env flag,
-// no toggle, no other restaurant is exempt.
-export const FREE_RESTAURANT_SLUG = "eastern-cusine";
+// The user's own test restaurants. They are free forever and are exempt
+// from the subscription paywall, in the admin area and on the guest menu.
+// Identified by slug — the same slug in each guest-menu URL (/r/<slug>).
+// This is a short hardcoded exemption list, not a general bypass: no env
+// flag, no toggle, no other restaurant is exempt.
+// - eastern-cusine: the user's own restaurant.
+// - dd-test-kitchen: the throwaway end-to-end test account, so the full
+//   app can be tested live without paying.
+export const FREE_RESTAURANT_SLUGS = ["eastern-cusine", "dd-test-kitchen"];
 
 // True when the restaurant may use DineDesk without paying: either it is
 // the free test restaurant, or it has an ACTIVE subscription. A PENDING
@@ -31,7 +34,7 @@ export async function hasActiveSubscriptionOrExempt(
         }),
     ]);
 
-    if (restaurant?.slug === FREE_RESTAURANT_SLUG) {
+    if (restaurant && FREE_RESTAURANT_SLUGS.includes(restaurant.slug)) {
         return true;
     }
 
