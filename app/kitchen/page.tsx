@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getActiveStaff } from "@/lib/staffAuth";
+import { expireStaleOrders } from "@/lib/orderLifecycle";
 import KitchenClient from "./KitchenClient";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,10 @@ export const dynamic = "force-dynamic";
 export default async function KitchenPage() {
     const staff = await getActiveStaff();
     if (!staff) redirect("/signin");
+
+    // Close anything stale first, so the kitchen never works off orders
+    // that should already have been completed or expired.
+    await expireStaleOrders(staff.restaurantId);
 
     // Only active orders (not SERVED, not CANCELLED)
     const orders = await prisma.order.findMany({

@@ -2,6 +2,7 @@ import { getUserFromToken } from "@/lib/authtoke";
 import { getTables } from "@/services/TableServices";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { expireStaleOrders } from "@/lib/orderLifecycle";
 import TableCardActions from "./TableCardActions";
 import AddTableButton from "./AddTableButton";
 import { requireActiveSubscription } from "@/lib/subscriptionGate";
@@ -20,6 +21,10 @@ export default async function AdminTables() {
     }
 
     await requireActiveSubscription(user.restaurantId);
+
+    // Close anything stale first, so freed tables show as available
+    // instead of staying occupied forever.
+    await expireStaleOrders(user.restaurantId);
 
     const tables = await getTables(user.restaurantId);
 

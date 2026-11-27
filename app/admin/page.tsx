@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getPakistanDayRange } from "@/lib/pakistanTime";
 import { getPriceTier } from "@/lib/payments/paddle";
+import { expireStaleOrders } from "@/lib/orderLifecycle";
 import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 const quickActions = [
@@ -40,6 +41,30 @@ export default async function AdminDashboard() {
 
     await requireActiveSubscription(user.restaurantId);
 
+    // Close anything stale first, so the stats and table counts below are
+    // never stuck on orders that should already have been completed.
+    await expireStaleOrders(user.restaurantId);
+
+    // The price shown depends on where the visitor is.
+    const priceTier = getPriceTier(
+        (await headers()).get("x-vercel-ip-country")
+    );
+
+    // Who to greet: the admin's own name when it is known, otherwise the
+    // restaurant name, otherwise the email as a last resort.
+    const [owner, restaurant] = await Promise.all([
+        prisma.user.findUnique({
+            where: { id: user.userId },
+            select: { name: true },
+        }),
+        prisma.restaurant.findUnique({
+            where: { id: user.restaurantId },
+            select: { name: true },
+        }),
+    ]);
+    const greetingName =
+        owner?.name?.trim() || restaurant?.name || user.email;
+
     // The gate above already redirected restaurants without an ACTIVE
     // subscription, so this lookup only ever comes back empty for the
     // exempt test restaurant — it drives the reminder banner there.
@@ -51,15 +76,7 @@ export default async function AdminDashboard() {
         select: { id: true },
     });
 
-    // The price shown depends on where the visitor is.
-    const priceTier = getPriceTier(
-        (await headers()).get("x-vercel-ip-country")
-    );
-
     const now = new Date();
-    const topSellingStart = new Date(now);
-    topSellingStart.setDate(topSellingStart.getDate() - 6);
-    topSellingStart.setHours(0, 0, 0, 0);
 
     const recentOrders = await prisma.order.findMany({
         where: {
@@ -74,33 +91,31 @@ export default async function AdminDashboard() {
         take: 5,
     });
 
-    const servedOrders = await prisma.order.findMany({
+    // Top sellers: items sold in the last 7 days on orders that were
+    // actually served or completed. Counted by when the item was ordered
+    // (not when the order was created), and over a rolling 7 days — the
+    // old midnight-anchored window dropped sales from the first day.
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const soldItems = await prisma.orderItem.findMany({
         where: {
-            restaurantId: user.restaurantId,
-            status: "SERVED",
-            createdAt: {
-                gte: topSellingStart,
-                lte: now,
+            createdAt: { gte: sevenDaysAgo },
+            order: {
+                restaurantId: user.restaurantId,
+                status: { in: ["SERVED", "COMPLETED"] },
             },
         },
         select: {
-            orderItems: {
-                select: {
-                    productName: true,
-                    quantity: true,
-                },
-            },
+            productName: true,
+            quantity: true,
         },
     });
 
     const soldByProduct = new Map<string, number>();
-    for (const order of servedOrders) {
-        for (const item of order.orderItems) {
-            soldByProduct.set(
-                item.productName,
-                (soldByProduct.get(item.productName) ?? 0) + item.quantity
-            );
-        }
+    for (const item of soldItems) {
+        soldByProduct.set(
+            item.productName,
+            (soldByProduct.get(item.productName) ?? 0) + item.quantity
+        );
     }
 
     const topSellingItems = [...soldByProduct.entries()]
@@ -116,25 +131,35 @@ export default async function AdminDashboard() {
         0
     );
 
-    const todaysOrders = await prisma.order.findMany({
+    // Today's sales count by when the item was ordered, not when the
+    // order was created: items added to an old order count today, and an
+    // order placed today but served tomorrow counts today too. Cancelled
+    // and expired orders never count.
+    const todaysItems = await prisma.orderItem.findMany({
         where: {
-            restaurantId: user.restaurantId,
             createdAt: {
                 gte: todayStart,
                 lt: todayEnd,
             },
+            order: {
+                restaurantId: user.restaurantId,
+                status: { notIn: ["CANCELLED", "EXPIRED"] },
+            },
         },
         select: {
-            status: true,
-            total: true,
+            orderId: true,
+            quantity: true,
+            unitPrice: true,
         },
     });
 
-    const todaysServed = todaysOrders.filter((i) => i.status === "SERVED");
-
-    const Revenue = todaysServed.reduce((acc, current) => {
-        return acc + current.total;
-    }, 0);
+    const Revenue = todaysItems.reduce(
+        (acc, item) => acc + item.unitPrice * item.quantity,
+        0
+    );
+    const todaysOrderCount = new Set(
+        todaysItems.map((item) => item.orderId)
+    ).size;
 
     const tables = await prisma.table.findMany({
         where: {
@@ -143,7 +168,7 @@ export default async function AdminDashboard() {
     });
     const occupiedTables = tables.filter((i) => i.status === "OCCUPIED")
         const averageOrderValue =
-        todaysServed.length > 0 ? Math.round(Revenue / todaysServed.length) : 0;
+        todaysOrderCount > 0 ? Math.round(Revenue / todaysOrderCount) : 0;
 
     const stats = [
         {
@@ -152,7 +177,7 @@ export default async function AdminDashboard() {
         },
         {
             label: "Orders Today",
-            value: `${todaysOrders.length}`,
+            value: `${todaysOrderCount}`,
         },
         {
             label: "Active Tables",
@@ -174,7 +199,7 @@ export default async function AdminDashboard() {
                 </h1>
 
                 <p className="mt-1 text-sm text-ink-soft">
-                    Welcome back, {user.email}. Overview of your restaurant
+                    Welcome back, {greetingName}. Overview of your restaurant
                     today.
                 </p>
             </div>

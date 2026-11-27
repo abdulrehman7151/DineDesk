@@ -5,9 +5,9 @@ import "server-only";
 // The plan is sold in US dollars, but the price a visitor sees depends on
 // where they are:
 // - Pakistan: USD 9.00/month, shown as "Rs 2,499/month".
-// - Everywhere else (including the USA): USD 39.00/month, shown as
-//   "$39/month". Paddle shows the amount in the customer's local currency
-//   at checkout.
+// - United States: USD 39.00/month, shown as "$39/month".
+// - Everywhere else: USD 25.00/month, shown as "$25/month".
+// Paddle shows the amount in the customer's local currency at checkout.
 // Paddle does not support PKR as a billing currency, so there is no PKR
 // price in the catalog — the Pakistan tier is a USD price, displayed in
 // rupees. The old USD 5.00 price (pri_01m8cq9pqm4t83zgp9s5psmdnn) is no
@@ -16,7 +16,7 @@ import "server-only";
 // as a prop from the subscription page.
 export const PADDLE_PRODUCT_ID = "pro_01m8cq886aepj07e7p5jtb8abk";
 
-export type PriceTierKey = "pakistan" | "international";
+export type PriceTierKey = "pakistan" | "unitedStates" | "international";
 
 export type PriceTier = {
     key: PriceTierKey;
@@ -45,8 +45,8 @@ export const PRICE_TIERS: Record<PriceTierKey, PriceTier> = {
         displayAmount: "2,499",
         displayNote: "Charged as USD 9.00/month",
     },
-    international: {
-        key: "international",
+    unitedStates: {
+        key: "unitedStates",
         paddlePriceId: "pri_01m8cvygz883bdv0nzees2r69g",
         amountMinor: 3900,
         currency: "USD",
@@ -55,16 +55,27 @@ export const PRICE_TIERS: Record<PriceTierKey, PriceTier> = {
         displayNote:
             "Charged in USD — Paddle shows the amount in your local currency at checkout.",
     },
+    international: {
+        key: "international",
+        paddlePriceId: "pri_01m8cvyx049w3vrms5axtknfjq",
+        amountMinor: 2500,
+        currency: "USD",
+        displayCurrency: "$",
+        displayAmount: "25",
+        displayNote:
+            "Charged in USD — Paddle shows the amount in your local currency at checkout.",
+    },
 };
 
 // Vercel sends the visitor's country as the `x-vercel-ip-country` header.
-// Only Pakistan gets the local tier; everyone else pays the international
-// price. An absent header (e.g. local development) falls back to the
-// international tier.
+// Pakistan gets the local tier, the USA gets the US tier, and every other
+// country gets the international tier. An absent header (e.g. local
+// development) falls back to the international tier.
 export function getPriceTier(country: string | null | undefined): PriceTier {
-    return country?.toUpperCase() === "PK"
-        ? PRICE_TIERS.pakistan
-        : PRICE_TIERS.international;
+    const code = country?.toUpperCase();
+    if (code === "PK") return PRICE_TIERS.pakistan;
+    if (code === "US") return PRICE_TIERS.unitedStates;
+    return PRICE_TIERS.international;
 }
 
 export function getPriceTierByPriceId(priceId: string): PriceTier | null {

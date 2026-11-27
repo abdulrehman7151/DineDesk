@@ -476,6 +476,11 @@ export default function HomeClient({
                        tableNumber={tableNumber}
                        initialStatus={tracked.status}
                        onFinished={() => setTracked(null)}
+                       // The first tracked order comes from the page load
+                       // (key 0): start closed, showing only the chip, so
+                       // a new guest sees the menu first. An order the
+                       // guest just placed gets a fresh key and opens.
+                       startOpen={tracked.key !== 0}
                    />
                )}
 

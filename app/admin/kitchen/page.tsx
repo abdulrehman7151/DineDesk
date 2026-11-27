@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
+import { expireStaleOrders } from "@/lib/orderLifecycle";
 import KitchenClient from "@/app/kitchen/KitchenClient";
 import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
@@ -16,6 +17,10 @@ export default async function AdminKitchenPage() {
     }
 
     await requireActiveSubscription(restaurantId);
+
+    // Close anything stale first, so the kitchen never works off orders
+    // that should already have been completed or expired.
+    await expireStaleOrders(restaurantId);
 
     const orders = await prisma.order.findMany({
         where: {

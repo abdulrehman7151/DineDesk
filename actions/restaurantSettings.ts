@@ -34,6 +34,9 @@ export async function updateRestaurantSettings(
     const phone = text(formData.get("phone"));
     const openingTime = text(formData.get("openingTime"));
     const closingTime = text(formData.get("closingTime"));
+    const servedAutoCloseMinutesRaw = text(
+        formData.get("servedAutoCloseMinutes")
+    );
 
     const invalidFields: string[] = [];
 
@@ -48,6 +51,19 @@ export async function updateRestaurantSettings(
     }
     if (closingTime !== "" && !TIME_RE.test(closingTime)) {
         invalidFields.push("closingTime");
+    }
+    // Auto-close minutes: a whole number of minutes, 5–240. Blank means
+    // the 30-minute default.
+    const servedAutoCloseMinutes =
+        servedAutoCloseMinutesRaw === ""
+            ? 30
+            : Number(servedAutoCloseMinutesRaw);
+    if (
+        !Number.isInteger(servedAutoCloseMinutes) ||
+        servedAutoCloseMinutes < 5 ||
+        servedAutoCloseMinutes > 240
+    ) {
+        invalidFields.push("servedAutoCloseMinutes");
     }
 
     if (invalidFields.length > 0) {
@@ -73,6 +89,7 @@ export async function updateRestaurantSettings(
                 phone,
                 openingTime: openingTime === "" ? null : openingTime,
                 closingTime: closingTime === "" ? null : closingTime,
+                servedAutoCloseMinutes,
             },
         });
 

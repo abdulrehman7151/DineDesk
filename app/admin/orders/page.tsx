@@ -1,13 +1,19 @@
 import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
+import { expireStaleOrders } from "@/lib/orderLifecycle";
 import { requireActiveSubscription } from "@/lib/subscriptionGate";
+import CompleteOrderButton from "./CompleteOrderButton";
+
+const ACTIVE_STATUSES = ["PENDING", "PREPARING", "READY", "SERVED"];
 
 const statusTone: Record<string, string> = {
     PENDING: "bg-surface-warm text-ink-soft",
     PREPARING: "bg-brand-soft text-brand",
     READY: "bg-success-bg text-success-text",
     SERVED: "bg-surface-tint text-ink-soft",
+    COMPLETED: "bg-success-bg text-success-text",
+    EXPIRED: "bg-surface-warm text-ink-soft",
     CANCELLED: "bg-red-100 text-red-700",
 };
 
@@ -17,11 +23,26 @@ export default async function AdminOrders() {
 
     await requireActiveSubscription(user.restaurantId);
 
-    const orders = await prisma.order.findMany({
-        where: { restaurantId: user.restaurantId },
-        include: { orderItems: true },
-        orderBy: { createdAt: "desc" },
-    });
+    // Close anything stale first, so this list and the table states are
+    // never stuck on orders that should already have been completed.
+    await expireStaleOrders(user.restaurantId);
+
+    const [orders, tables] = await Promise.all([
+        prisma.order.findMany({
+            where: { restaurantId: user.restaurantId },
+            include: { orderItems: true },
+            orderBy: { createdAt: "desc" },
+        }),
+        prisma.table.findMany({
+            where: { restaurantId: user.restaurantId },
+            select: { number: true },
+        }),
+    ]);
+
+    // Old orders can name a table that no longer exists (e.g. "Table 12"
+    // after the restaurant re-did its tables). Show the stored number, but
+    // mark it so nobody goes looking for a table that is not there.
+    const currentTableNumbers = new Set(tables.map((table) => table.number));
 
     return (
         <div className="space-y-6">
@@ -51,6 +72,7 @@ export default async function AdminOrders() {
                                     <th className="px-6 py-3.5">Total</th>
                                     <th className="px-6 py-3.5">Time</th>
                                     <th className="px-6 py-3.5">Status</th>
+                                    <th className="px-6 py-3.5" />
                                 </tr>
                             </thead>
                             <tbody>
@@ -58,7 +80,11 @@ export default async function AdminOrders() {
                                     <tr key={order.id} className="border-b border-hairline last:border-0 hover:bg-surface-tint">
                                         <td className="px-6 py-4 font-semibold text-ink">#{order.id}</td>
                                         <td className="px-6 py-4 text-ink-soft">
-                                            {order.tableNumber == null ? "-" : `Table ${order.tableNumber}`}
+                                            {order.tableNumber == null
+                                                ? "-"
+                                                : currentTableNumbers.has(order.tableNumber)
+                                                  ? `Table ${order.tableNumber}`
+                                                  : `Table ${order.tableNumber} (removed)`}
                                         </td>
                                         <td className="px-6 py-4 text-ink-soft">
                                             {(() => {
@@ -81,6 +107,11 @@ export default async function AdminOrders() {
                                             <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusTone[order.status]}`}>
                                                 {order.status.charAt(0) + order.status.slice(1).toLowerCase()}
                                             </span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {ACTIVE_STATUSES.includes(order.status) ? (
+                                                <CompleteOrderButton orderId={order.id} />
+                                            ) : null}
                                         </td>
                                     </tr>
                                 ))}

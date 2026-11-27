@@ -41,9 +41,19 @@ export async function getOrderStatusAction(
 
     if (!order) return { success: false };
 
+    // The tracker only knows the guest-facing statuses: a completed order
+    // reads as served ("Enjoy your meal!") and an expired one as
+    // cancelled, so the popup closes cleanly either way.
+    const status =
+        order.status === "COMPLETED"
+            ? "SERVED"
+            : order.status === "EXPIRED"
+              ? "CANCELLED"
+              : order.status;
+
     return {
         success: true,
-        status: order.status,
+        status,
         total: order.total,
         itemCount: order.orderItems.reduce((sum, i) => sum + i.quantity, 0),
     };

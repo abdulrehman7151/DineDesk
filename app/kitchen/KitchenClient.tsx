@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateOrderStatus, acknowledgeAdditions } from "./actions";
+import { updateOrderStatus, acknowledgeAdditions, completeOrderAction } from "./actions";
 import { logout } from "@/actions/signout";
 import { canSetStatus, type UpdatableOrderStatus } from "@/lib/orderPermissions";
 
@@ -130,6 +130,29 @@ export default function KitchenClient({
         }
     }
 
+    async function handleCompleteClick(orderId: number) {
+        setLoadingId(orderId);
+
+        try {
+            const result = await completeOrderAction(orderId);
+
+            if (!result.success) {
+                alert(result.message);
+                if (result.code === "UNAUTHORIZED") {
+                    router.replace("/signin");
+                    return;
+                }
+            }
+
+            router.refresh();
+        } catch (error) {
+            alert("Failed to complete order");
+            console.error(error);
+        } finally {
+            setLoadingId(null);
+        }
+    }
+
     async function handleAcknowledge(orderId: number) {
         setLoadingId(orderId);
 
@@ -246,6 +269,10 @@ export default function KitchenClient({
                             const action = ACTIONS[order.status];
                             const allowed = canSetStatus(role, action.to);
                             const canAck = canSetStatus(role, "PREPARING");
+                            // Closing an order is a staff action, like
+                            // starting to prepare it: admins, managers and
+                            // chefs may do it, cashiers may not.
+                            const canComplete = canSetStatus(role, "PREPARING");
 
                             return (
                                 <div
@@ -344,6 +371,26 @@ export default function KitchenClient({
                                             <p className="py-3 text-center text-xs font-medium text-ink-muted">
                                                 {action.waiting}
                                             </p>
+                                        )}
+
+                                        {/* Close the bill by hand: the
+                                            order is done and the table
+                                            frees at once. Served orders
+                                            also close themselves after the
+                                            auto-close minutes. */}
+                                        {canComplete && (
+                                            <button
+                                                type="button"
+                                                disabled={isLoading}
+                                                onClick={() =>
+                                                    handleCompleteClick(order.id)
+                                                }
+                                                className="mt-2 w-full rounded-full border border-hairline bg-surface py-2.5 text-sm font-bold text-ink transition hover:border-brand hover:text-brand disabled:opacity-50"
+                                            >
+                                                {isLoading
+                                                    ? "Updating..."
+                                                    : "Complete order"}
+                                            </button>
                                         )}
                                     </div>
                                 </div>

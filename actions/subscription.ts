@@ -2,47 +2,8 @@
 "use server";
 
 import { requireRole } from "@/lib/authtoke";
-import { prisma } from "@/lib/prisma";
 import { getPriceTierByPriceId } from "@/lib/payments/paddle";
-import { startBasicSubscriptionCheckoutService } from "@/services/Subscriptionservices";
 import { startPaddleSubscriptionCheckoutService } from "@/services/PaddleSubscriptionservices";
-
-export async function startBasicSubscriptionCheckout() {
-    try {
-        const user = await requireRole(["admin"]);
-
-        if (!user) {
-            return {
-                success: false,
-                message: "Unauthorized. Admin access required.",
-            };
-        }
-
-        const result = await startBasicSubscriptionCheckoutService(user.restaurantId);
-
-        return result;
-    } catch (error) {
-        console.error("Subscription action error:", error);
-        const safeMessages = new Set([
-            "Basic subscription plan is unavailable.",
-            "Your restaurant already has an active subscription.",
-            "A subscription checkout is already in progress. Finish or cancel it before starting another.",
-            "Subscription reference is required",
-            "Safepay returned an invalid authentication token.",
-        ]);
-
-        return {
-            success: false,
-            message:
-                error instanceof Error &&
-                (safeMessages.has(error.message) ||
-                    error.message.startsWith("Safepay") ||
-                    error.message.startsWith("APP_URL"))
-                    ? error.message
-                    : "Unable to start checkout. Please try again.",
-        };
-    }
-}
 
 export async function startPaddleSubscriptionCheckout(priceId: string) {
     try {
@@ -55,7 +16,7 @@ export async function startPaddleSubscriptionCheckout(priceId: string) {
             };
         }
 
-        // Never trust the price id from the browser: only the two prices
+        // Never trust the price id from the browser: only the prices
         // we sell can start a checkout.
         const tier = getPriceTierByPriceId(priceId);
         if (!tier) {
@@ -77,7 +38,7 @@ export async function startPaddleSubscriptionCheckout(priceId: string) {
         const safeMessages = new Set([
             "Basic subscription plan is unavailable.",
             "Your restaurant already has an active subscription.",
-            "A subscription checkout is already in progress. Finish or cancel it before starting another.",
+            "A subscription checkout is already in progress. Finish it, or wait a day for it to lapse, before starting another.",
         ]);
 
         return {
@@ -89,72 +50,3 @@ export async function startPaddleSubscriptionCheckout(priceId: string) {
         };
     }
 }
-
-export async function cancelPendingSubscriptionCheckout() {
-    try {
-        const user = await requireRole(["admin"]);
-        if (!user) {
-            return {
-                success: false,
-                message: "Unauthorized. Admin access required.",
-            };
-        }
-
-        const pendingSubscription = await prisma.subscription.findFirst({
-            where: {
-                restaurantId: user.restaurantId,
-                status: "PENDING",
-            },
-            orderBy: { createdAt: "desc" },
-            select: { id: true },
-        });
-
-        if (!pendingSubscription) {
-            return {
-                success: false,
-                message: "No unfinished checkout was found.",
-            };
-        }
-
-        const cancelled = await prisma.$transaction(async (transaction) => {
-            const result = await transaction.subscription.updateMany({
-                where: {
-                    id: pendingSubscription.id,
-                    status: "PENDING",
-                },
-                data: {
-                    status: "CANCELLED",
-                    cancelledAt: new Date(),
-                },
-            });
-
-            if (result.count === 0) {
-                return false;
-            }
-
-            await transaction.payment.updateMany({
-                where: {
-                    subscriptionId: pendingSubscription.id,
-                    status: "PENDING",
-                },
-                data: { status: "FAILED" },
-            });
-
-            return true;
-        });
-
-        return cancelled
-            ? { success: true }
-            : {
-                  success: false,
-                  message: "The subscription status changed. Refresh and try again.",
-              };
-    } catch (error) {
-        console.error("Subscription checkout cancellation failed:", error);
-        return {
-            success: false,
-            message: "Unable to cancel checkout. Please try again.",
-        };
-    }
-}
-

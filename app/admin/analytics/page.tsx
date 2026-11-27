@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireRole } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
 import { getPakistanDayRange } from "@/lib/pakistanTime";
+import { expireStaleOrders } from "@/lib/orderLifecycle";
 import AnalyticsClient from "./AnalyticsClient";
 import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
@@ -16,6 +17,8 @@ export default async function AdminAnalytics() {
 
     await requireActiveSubscription(user.restaurantId);
 
+    await expireStaleOrders(user.restaurantId);
+
     const now = new Date();
     // Last 90 Pakistan days, starting at PKT midnight 89 days ago.
     const { start } = getPakistanDayRange(now, 89);
@@ -23,7 +26,8 @@ export default async function AdminAnalytics() {
     const orders = await prisma.order.findMany({
         where: {
             restaurantId: user.restaurantId,
-            status: "SERVED",
+            // Served and completed orders are both sales.
+            status: { in: ["SERVED", "COMPLETED"] },
             createdAt: {
                 gte: start,
                 lte: now,

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getUserFromToken } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
+import { completeOrder } from "@/lib/orderLifecycle";
 import { submitTableOrder, type CartLine } from "@/services/TableOrderServices";
 
 type SubmitResult =
@@ -61,6 +62,7 @@ export async function submitAdminOrderAction(
         revalidatePath("/admin/kitchen");
         revalidatePath("/admin/tables");
         revalidatePath("/kitchen");
+        revalidatePath("/admin");
 
         return {
             success: true,
@@ -79,4 +81,36 @@ export async function submitAdminOrderAction(
                     : "Failed to place the order. Please try again.",
         };
     }
+}
+
+/**
+ * Close an active order by hand from the admin orders list: the bill is
+ * done and the table frees at once.
+ */
+export async function completeAdminOrderAction(
+    orderId: number
+): Promise<{ success: boolean; message?: string }> {
+    const user = await getUserFromToken();
+
+    if (!user || user.role !== "admin") {
+        return { success: false, message: "Please sign in again." };
+    }
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        return { success: false, message: "Invalid order." };
+    }
+
+    const done = await completeOrder(user.restaurantId, orderId);
+
+    if (!done) {
+        return { success: false, message: "That order was already closed." };
+    }
+
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin/kitchen");
+    revalidatePath("/admin/tables");
+    revalidatePath("/kitchen");
+    revalidatePath("/admin");
+
+    return { success: true };
 }

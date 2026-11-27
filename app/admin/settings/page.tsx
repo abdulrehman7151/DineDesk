@@ -24,6 +24,7 @@ export default async function SettingsPage() {
             phone: true,
             openingTime: true,
             closingTime: true,
+            servedAutoCloseMinutes: true,
         },
     });
 
@@ -40,6 +41,9 @@ export default async function SettingsPage() {
                 phone: restaurant.phone,
                 openingTime: restaurant.openingTime ?? "",
                 closingTime: restaurant.closingTime ?? "",
+                servedAutoCloseMinutes: String(
+                    restaurant.servedAutoCloseMinutes
+                ),
             }}
         />
     );
