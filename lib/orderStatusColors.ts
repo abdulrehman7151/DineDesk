@@ -35,30 +35,14 @@ export const ORDER_STATUS_SOLID: Record<string, string> = {
 
 export type MetricToneKey = "revenue" | "orders" | "tables" | "average";
 
-export const METRIC_TONE: Record<
-    MetricToneKey,
-    { value: string; chip: string; bar: string }
-> = {
-    revenue: {
-        value: "text-emerald-700",
-        chip: "bg-emerald-100 text-emerald-800",
-        bar: "bg-emerald-500",
-    },
-    orders: {
-        value: "text-sky-700",
-        chip: "bg-sky-100 text-sky-800",
-        bar: "bg-sky-500",
-    },
-    tables: {
-        value: "text-violet-700",
-        chip: "bg-violet-100 text-violet-800",
-        bar: "bg-violet-500",
-    },
-    average: {
-        value: "text-amber-700",
-        chip: "bg-amber-100 text-amber-800",
-        bar: "bg-amber-500",
-    },
+// Kept deliberately restrained: the number stays dark and only a small
+// dot carries the metric colour, so the cards read professional rather
+// than a rainbow of bright values and bars.
+export const METRIC_TONE: Record<MetricToneKey, { dot: string }> = {
+    revenue: { dot: "bg-emerald-500" },
+    orders: { dot: "bg-sky-500" },
+    tables: { dot: "bg-violet-500" },
+    average: { dot: "bg-amber-500" },
 };
 
 export const CATEGORY_BAR_COLORS = [

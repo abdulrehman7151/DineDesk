@@ -276,8 +276,13 @@ export default function SalesClient({ orders }: Props) {
 function SummaryCard({ label, value, tone }: { label: string; value: string; tone: MetricToneKey }) {
     return (
         <div className="rounded-card border border-hairline bg-surface p-5 shadow-soft">
-            <p className="text-xs font-medium text-ink-soft">{label}</p>
-            <p className={`mt-2 text-2xl font-bold tracking-tight ${METRIC_TONE[tone].value}`}>{value}</p>
+            <div className="flex items-center gap-2">
+                <span
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${METRIC_TONE[tone].dot}`}
+                />
+                <p className="text-xs font-medium text-ink-soft">{label}</p>
+            </div>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">{value}</p>
         </div>
     );
 }

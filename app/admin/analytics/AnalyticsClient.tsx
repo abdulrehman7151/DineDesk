@@ -491,8 +491,15 @@ function SummaryCard({
 }) {
     return (
         <div className="rounded-card border border-hairline bg-surface p-5 shadow-soft">
-            <p className="text-xs font-medium text-ink-soft">{label}</p>
-            <p className={`mt-2 text-2xl font-bold tracking-tight ${tone ? METRIC_TONE[tone].value : "text-ink"}`}>
+            <div className="flex items-center gap-2">
+                {tone ? (
+                    <span
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${METRIC_TONE[tone].dot}`}
+                    />
+                ) : null}
+                <p className="text-xs font-medium text-ink-soft">{label}</p>
+            </div>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
                 {value}
             </p>
             {detail && <p className="mt-1 text-[11px] text-ink-muted">{detail}</p>}

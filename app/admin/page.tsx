@@ -234,18 +234,20 @@ export default async function AdminDashboard() {
                 {stats.map((s) => (
                     <div
                         key={s.label}
-                        className="overflow-hidden rounded-card border border-hairline bg-surface shadow-soft"
+                        className="rounded-card border border-hairline bg-surface p-5 shadow-soft"
                     >
-                        <div className={`h-1.5 ${METRIC_TONE[s.tone].bar}`} />
-                        <div className="p-5">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${METRIC_TONE[s.tone].dot}`}
+                            />
                             <p className="text-xs font-medium text-ink-soft">
                                 {s.label}
                             </p>
-
-                            <p className={`mt-2 text-2xl font-bold tracking-tight ${METRIC_TONE[s.tone].value}`}>
-                                {s.value}
-                            </p>
                         </div>
+
+                        <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
+                            {s.value}
+                        </p>
                     </div>
                 ))}
             </div>
@@ -319,7 +321,7 @@ export default async function AdminDashboard() {
                                                 {itemCount === 1 ? "" : "s"}
                                             </td>
 
-                                            <td className="px-6 py-3.5 font-bold text-price">
+                                            <td className="px-6 py-3.5 font-bold text-emerald-700">
                                                 Rs. {o.total}
                                             </td>
 
