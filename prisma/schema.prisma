@@ -27,6 +27,9 @@ model Restaurant {
   phone     String
   openingTime String?
   closingTime String?
+  // Minutes after an order is served with no new items before it closes
+  // itself and frees the table. Editable in admin Settings.
+  servedAutoCloseMinutes Int @default(30)
   createdAt DateTime         @default(now())
   ownerId   Int
   owner     User             @relation("RestaurantOwner", fields: [ownerId], references: [id], onDelete: Cascade)
@@ -86,6 +89,8 @@ enum OrderStatus {
   PREPARING
   READY
   SERVED
+  COMPLETED
+  EXPIRED
   CANCELLED
 }
 
@@ -98,6 +103,10 @@ model Order {
   tableNumber  Int?
   total        Int         @default(0)
   hasNewAdditions Boolean  @default(false)
+  // When the order was last marked SERVED. Drives the auto-close timer:
+  // a SERVED order with no new items for servedAutoCloseMinutes closes
+  // itself. Cleared when new items move it back to PREPARING.
+  servedAt     DateTime?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   table        Table?      @relation(fields: [tableId], references: [id])
@@ -124,9 +133,13 @@ model OrderItem {
   unitPrice Int
   notes     String?
   isAddition Boolean @default(false)
+  // When this line was ordered. "Today" stats count by this, so items
+  // added to an old order count on the day they were added.
+  createdAt DateTime @default(now())
 
   @@index([orderId])
   @@index([menuItemId])
+  @@index([createdAt])
 }
 
 model Table {
@@ -198,7 +211,6 @@ model SubscriptionPlan {
   interval      String   @default("Month")
   intervalCount Int      @default(1)
   trialDays     Int      @default(0)
-  safepayPlanId String   @unique
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -215,7 +227,6 @@ model Subscription {
   planId Int
   plan   SubscriptionPlan @relation(fields: [planId], references: [id])
   reference String? @unique
-  safepaySubscriptionId String?            @unique
   paddleSubscriptionId  String?            @unique
   status                SubscriptionStatus @default(PENDING)
 
@@ -239,7 +250,6 @@ model Payment {
   subscriptionId Int
   subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
-  safepayTransactionId String?       @unique
   paddleTransactionId  String?       @unique
   amount               Int
   currency             String        @default("PKR") @db.VarChar(3)

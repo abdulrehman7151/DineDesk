@@ -12,6 +12,11 @@ type Props = {
     tableNumber: number | null;
     initialStatus: Status;
     onFinished: () => void;
+    // Whether the popup starts open. A guest who just placed an order
+    // sees it at once; a guest who only just loaded the page (the table
+    // already has an order) gets the small chip instead, so the menu is
+    // not covered on arrival.
+    startOpen?: boolean;
 };
 
 const AUTO_CLOSE_MS = 10_000;
@@ -175,6 +180,7 @@ export default function OrderStatusTracker({
     tableNumber,
     initialStatus,
     onFinished,
+    startOpen = true,
 }: Props) {
     const [status, setStatus] = useState<Status>(initialStatus);
     const [total, setTotal] = useState<number | null>(null);
@@ -182,7 +188,7 @@ export default function OrderStatusTracker({
 
     // The popup opens by itself. "auto" = it closes itself after 10 seconds.
     // When the customer taps the chip it opens with auto = false and stays until X.
-    const [open, setOpen] = useState(true);
+    const [open, setOpen] = useState(startOpen);
     const [auto, setAuto] = useState(true);
 
     const lastStatus = useRef<Status>(initialStatus);

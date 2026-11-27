@@ -2,8 +2,8 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/authtoke";
+import { pendingCheckoutCutoff } from "@/lib/orderLifecycle";
 import PaddleCheckoutButton from "@/components/PaddleCheckoutButton";
-import CancelPendingCheckoutButton from "./CancelPendingCheckoutButton";
 import { getPriceTier } from "@/lib/payments/paddle";
 
 export default async function SubscriptionPage() {
@@ -13,7 +13,8 @@ export default async function SubscriptionPage() {
     }
 
     // The price depends on where the visitor is: Pakistan pays the local
-    // tier, everyone else the international one. All charges are in USD.
+    // tier, the USA pays the US tier, every other country the
+    // international tier. All charges are in USD.
     const tier = getPriceTier((await headers()).get("x-vercel-ip-country"));
 
     const [plan, subscription] = await Promise.all([
@@ -43,12 +44,25 @@ export default async function SubscriptionPage() {
         }),
     ]);
 
-    // Only an active (or in-progress) subscription blocks a new checkout.
-    // A past-due, cancelled or expired subscription can be replaced by
-    // subscribing again.
-    const checkoutBlocked =
-        subscription?.status === "ACTIVE" ||
-        subscription?.status === "PENDING";
+    // Only an active subscription — or a checkout started in the last
+    // day — blocks a new checkout. A PENDING row older than that was
+    // abandoned (the customer closed the payment page) and must not stop
+    // the restaurant from subscribing. A past-due, cancelled or expired
+    // subscription can be replaced by subscribing again.
+    const blockingSubscription = await prisma.subscription.findFirst({
+        where: {
+            restaurantId: user.restaurantId,
+            OR: [
+                { status: "ACTIVE" },
+                {
+                    status: "PENDING",
+                    createdAt: { gte: pendingCheckoutCutoff() },
+                },
+            ],
+        },
+        select: { id: true },
+    });
+    const checkoutBlocked = blockingSubscription !== null;
     const lastPayment = subscription?.payments[0];
 
     return (
@@ -131,9 +145,6 @@ export default async function SubscriptionPage() {
                         disabled={!plan?.isActive || checkoutBlocked}
                         priceId={tier.paddlePriceId}
                     />
-                    {subscription?.status === "PENDING" ? (
-                        <CancelPendingCheckoutButton />
-                    ) : null}
                 </div>
             </div>
         </section>

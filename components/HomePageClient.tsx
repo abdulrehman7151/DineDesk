@@ -127,8 +127,8 @@ const STEPS = [
 ];
 
 // Pricing: the price comes from the server (app/page.tsx), which picks the
-// tier from the visitor's country — Pakistan sees Rs 2,499, everyone else
-// sees $39. The charge itself is always in USD.
+// tier from the visitor's country — Pakistan sees Rs 2,499, the USA sees
+// $39, everyone else sees $25. The charge itself is always in USD.
 const PERIOD = "month";
 
 // Currency for the fake dish prices in the hero demo menu (a pretend

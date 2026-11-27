@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getActiveStaff } from "@/lib/staffAuth";
+import { completeOrder } from "@/lib/orderLifecycle";
 import {
     REQUIRED_CURRENT,
     canSetStatus,
@@ -43,11 +44,6 @@ export async function updateOrderStatus(
 
     // Only move forward one step, and only if the order is still in the
     // expected status (protects against two people clicking at once).
-    const order = await prisma.order.findUnique({
-        where: { id: orderId },
-        select: { tableId: true },
-    });
-
     const result = await prisma.order.updateMany({
         where: {
             id: orderId,
@@ -56,6 +52,10 @@ export async function updateOrderStatus(
         },
         data: {
             status: newStatus,
+            // Serving starts the auto-close timer: if no new items come
+            // in for the restaurant's auto-close minutes, the order
+            // closes itself and frees the table.
+            ...(newStatus === "SERVED" ? { servedAt: new Date() } : {}),
             // Once the order is ready/served, the "items added" alert is done
             ...(newStatus !== "PREPARING" ? { hasNewAdditions: false } : {}),
         },
@@ -68,28 +68,24 @@ export async function updateOrderStatus(
         };
     }
 
-    // A served order frees its table, but only when no other active order
-    // is still running on that table.
-    if (newStatus === "SERVED" && order?.tableId) {
-        const stillActive = await prisma.order.count({
-            where: {
-                tableId: order.tableId,
-                status: { in: ["PENDING", "PREPARING", "READY"] },
-            },
+    // The "ADDED" badges belong to the alert above: once the order moves
+    // forward, the added items have been seen by the kitchen.
+    if (newStatus !== "PREPARING") {
+        await prisma.orderItem.updateMany({
+            where: { orderId },
+            data: { isAddition: false },
         });
-
-        if (stillActive === 0) {
-            await prisma.table.update({
-                where: { id: order.tableId },
-                data: { status: "AVAILABLE" },
-            });
-        }
     }
+
+    // NOTE: a SERVED order does not free its table — the tab stays open
+    // until the order is completed (by hand, or by the auto-close timer),
+    // so guests can still add items to it.
 
     revalidatePath("/kitchen");
     revalidatePath("/admin/kitchen");
     revalidatePath("/admin/orders");
     revalidatePath("/admin/tables");
+    revalidatePath("/admin");
 
     return { success: true };
 }
@@ -117,8 +113,50 @@ export async function acknowledgeAdditions(
         data: { hasNewAdditions: false },
     });
 
+    // The chef has seen the added items: clear their "ADDED" badges too.
+    await prisma.orderItem.updateMany({
+        where: { orderId },
+        data: { isAddition: false },
+    });
+
     revalidatePath("/kitchen");
     revalidatePath("/admin/kitchen");
+
+    return { success: true };
+}
+
+/** Staff close an active order by hand: the bill is done and the table frees. */
+export async function completeOrderAction(
+    orderId: number
+): Promise<UpdateResult> {
+    const staff = await getActiveStaff();
+    if (!staff) return UNAUTHORIZED;
+
+    if (!canSetStatus(staff.role, "PREPARING")) {
+        return {
+            success: false,
+            message: "Your role is not allowed to make this change.",
+        };
+    }
+
+    if (!Number.isInteger(orderId) || orderId <= 0) {
+        return { success: false, message: "Invalid order." };
+    }
+
+    const done = await completeOrder(staff.restaurantId, orderId);
+
+    if (!done) {
+        return {
+            success: false,
+            message: "This order was already closed.",
+        };
+    }
+
+    revalidatePath("/kitchen");
+    revalidatePath("/admin/kitchen");
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin/tables");
+    revalidatePath("/admin");
 
     return { success: true };
 }

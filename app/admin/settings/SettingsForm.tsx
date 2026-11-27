@@ -13,6 +13,7 @@ type SettingsValues = {
     phone: string;
     openingTime: string;
     closingTime: string;
+    servedAutoCloseMinutes: string;
 };
 
 const initialState: RestaurantSettingsState = {
@@ -202,6 +203,31 @@ export default function SettingsForm({
                             className={inputClass}
                         />
                     </div>
+                </div>
+
+                <div>
+                    <label
+                        htmlFor="settings-autoclose"
+                        className={labelClass}
+                    >
+                        Auto-close served orders after (minutes)
+                    </label>
+                    <input
+                        id="settings-autoclose"
+                        name="servedAutoCloseMinutes"
+                        type="number"
+                        min={5}
+                        max={240}
+                        step={1}
+                        value={values.servedAutoCloseMinutes}
+                        onChange={updateField("servedAutoCloseMinutes")}
+                        className={inputClass}
+                    />
+                    <p className="mt-1.5 text-xs text-ink-muted">
+                        A served order with no new items for this long closes
+                        itself and frees the table. Leave blank for the
+                        30-minute default.
+                    </p>
                 </div>
 
                 <div className="flex justify-end border-t border-hairline pt-5">

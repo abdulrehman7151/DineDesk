@@ -1,5 +1,9 @@
 LINES: 160
 import { prisma } from "@/lib/prisma";
+import {
+    ACTIVE_ORDER_STATUSES,
+    expireStaleOrders,
+} from "@/lib/orderLifecycle";
 import { PlacingOrderServices } from "@/services/OrderServices";
 
 export type CartLine = {
@@ -8,8 +12,6 @@ export type CartLine = {
     quantity: number;
     note?: string;
 };
-
-const ACTIVE_STATUSES = ["PENDING", "PREPARING", "READY"] as const;
 
 /**
  * Adds items to an existing, unserved order.
@@ -28,11 +30,18 @@ async function addItemsToOrder(
                     id: orderId,
                     restaurantId,
                     tableId,
-                    status: { in: [...ACTIVE_STATUSES] },
+                    status: { in: [...ACTIVE_ORDER_STATUSES] },
                 },
             });
 
             if (!order) return null;
+
+            // "ADDED" marks only the newest batch: clear the flag on the
+            // lines already on the order before adding the new ones.
+            await tx.orderItem.updateMany({
+                where: { orderId: order.id },
+                data: { isAddition: false },
+            });
 
             let addedTotal = 0;
 
@@ -107,8 +116,17 @@ async function addItemsToOrder(
                 data: {
                     total: { increment: addedTotal },
                     hasNewAdditions: true,
-                    // Food that was already ready needs cooking again
-                    status: order.status === "READY" ? "PREPARING" : order.status,
+                    // Food that was already ready — or already served —
+                    // needs cooking again, so the order goes back to the
+                    // kitchen. Adding items also resets the served timer:
+                    // servedAt is cleared and only set again when the
+                    // order is served next. updatedAt refreshes on this
+                    // update, which is what the stale-order expiry counts.
+                    ...(order.status === "SERVED"
+                        ? { status: "PREPARING", servedAt: null }
+                        : order.status === "READY"
+                          ? { status: "PREPARING" }
+                          : {}),
                 },
             });
 
@@ -125,7 +143,7 @@ async function addItemsToOrder(
 }
 
 /**
- * If the table already has an unserved order, add to it.
+ * If the table already has an open order, add to it.
  * Otherwise create a new order.
  */
 export async function submitTableOrder(
@@ -134,11 +152,15 @@ export async function submitTableOrder(
     tableId: number,
     tableNumber: number
 ) {
+    // Close anything stale first, so a new order never gets appended to
+    // an order that should already have been completed or expired.
+    await expireStaleOrders(restaurantId);
+
     const existing = await prisma.order.findFirst({
         where: {
             restaurantId,
             tableId,
-            status: { in: [...ACTIVE_STATUSES] },
+            status: { in: [...ACTIVE_ORDER_STATUSES] },
         },
         orderBy: { createdAt: "desc" },
         select: { id: true },

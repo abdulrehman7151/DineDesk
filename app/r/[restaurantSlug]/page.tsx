@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import HomeClient from "@/app/Homeclinet";
+import { expireStaleOrders } from "@/lib/orderLifecycle";
 import { hasActiveSubscriptionOrExempt } from "@/lib/subscriptionGate";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,10 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
         include: { sizes: true },
         orderBy: { createdAt: "desc" },
     });
+
+    // Close anything stale first, so a new guest never gets attached to
+    // an order that should already have been completed or expired.
+    await expireStaleOrders(restaurant.id);
 
     const tableQrId =
         typeof tableIdParam === "string" && /^[a-f0-9]{32}$/i.test(tableIdParam)

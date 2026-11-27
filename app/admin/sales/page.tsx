@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getUserFromToken } from "@/lib/authtoke";
+import { expireStaleOrders } from "@/lib/orderLifecycle";
 import SalesClient from "./SalesClient";
 import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
@@ -12,6 +13,8 @@ export default async function AdminSales() {
 
     await requireActiveSubscription(user.restaurantId);
 
+    await expireStaleOrders(user.restaurantId);
+
     // Load the last 12 months of served orders ONCE.
     // The client filters/aggregates by period locally.
     const now = new Date();
@@ -23,7 +26,8 @@ export default async function AdminSales() {
     const orders = await prisma.order.findMany({
         where: {
             restaurantId: user.restaurantId,
-            status: "SERVED",
+            // Served and completed orders are both sales.
+            status: { in: ["SERVED", "COMPLETED"] },
             createdAt: { gte: oneYearAgo },
         },
         include: {

@@ -2,13 +2,14 @@ import "server-only";
 
 import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
+import { pendingCheckoutCutoff } from "@/lib/orderLifecycle";
 import type { PriceTier } from "@/lib/payments/paddle";
 
 // Creates the local PENDING subscription (and its PENDING payment) for a
-// Paddle checkout. Unlike the SafePay service, this does not call out to
-// Paddle: the browser opens the Paddle.js overlay checkout directly with
-// the catalog price id, and the reference created here is passed as custom
-// data so the Paddle webhook can link the payment back to this row.
+// Paddle checkout. This does not call out to Paddle: the browser opens
+// the Paddle.js overlay checkout directly with the catalog price id, and
+// the reference created here is passed as custom data so the Paddle
+// webhook can link the payment back to this row.
 export async function startPaddleSubscriptionCheckoutService(
     restaurantId: number,
     customerEmail: string,
@@ -35,16 +36,20 @@ export async function startPaddleSubscriptionCheckoutService(
         );
     }
 
+    // Only a checkout started in the last day blocks a new one. A PENDING
+    // row older than that was abandoned (the customer closed the payment
+    // page) and must not stop the restaurant from subscribing.
     const pendingSubscription = await prisma.subscription.findFirst({
         where: {
             restaurantId,
             status: "PENDING",
+            createdAt: { gte: pendingCheckoutCutoff() },
         },
     });
 
     if (pendingSubscription) {
         throw new Error(
-            "A subscription checkout is already in progress. Finish or cancel it before starting another."
+            "A subscription checkout is already in progress. Finish it, or wait a day for it to lapse, before starting another."
         );
     }
 
