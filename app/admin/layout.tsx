@@ -4,7 +4,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import ProfileDropdown from "@/components/ProfileDropdown";
-import NotificationsBell from "@/components/NotificationsBell";
 import MobileAdminNav from "@/components/MobileAdminNav";
 import { prisma } from "@/lib/prisma";
 
@@ -16,7 +15,8 @@ const navItems = [
     { href: "/admin/sales", label: "Sales", icon: "M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" },
     { href: "/admin/analytics", label: "Analytics", icon: "M3 3v18h18M7 16l4-4 3 3 5-6" },
     { href: "/admin/kitchen", label: "Kitchen", icon: "M4 3v7a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V3M7 13v8M17 13v8M4 7h16M12 3v4" },
-    { href: "/admin/staff", label: "Staff", icon: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM3 21v-1a6 6 0 0 1 6-6h0a6 6 0 0 1 6 6v1M17 11a3 3 0 1 0 0-6M21 21v-1a5 5 0 0 0-3-4.58" }
+    { href: "/admin/staff", label: "Staff", icon: "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM3 21v-1a6 6 0 0 1 6-6h0a6 6 0 0 1 6 6v1M17 11a3 3 0 1 0 0-6M21 21v-1a5 5 0 0 0-3-4.58" },
+    { href: "/admin/settings", label: "Settings", icon: "M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" },
 ];
 
 export default async function AdminLayout({
@@ -34,32 +34,6 @@ export default async function AdminLayout({
             select: { name: true, city: true },
         })
         : null;
-
-    const activeOrders = user
-        ? await prisma.order.findMany({
-            where: {
-                restaurantId: user.restaurantId,
-                status: { in: ["PENDING", "PREPARING"] },
-            },
-            select: {
-                id: true,
-                tableNumber: true,
-                total: true,
-                status: true,
-                createdAt: true,
-            },
-            orderBy: { createdAt: "desc" },
-            take: 10,
-        })
-        : [];
-
-    const notifications = activeOrders.map((order) => ({
-        id: order.id,
-        tableNumber: order.tableNumber,
-        total: order.total,
-        status: order.status,
-        createdAt: order.createdAt.toISOString(),
-    }));
 
     return (
         <div className="flex min-h-screen bg-surface text-ink">
@@ -135,9 +109,6 @@ export default async function AdminLayout({
                         </div>
 
                         <div className="flex items-center gap-2">
-                            {/* Notification */}
-                            <NotificationsBell notifications={notifications} />
-
                             {/* Client dropdown */}
                             <ProfileDropdown
                                 initial={user?.email[0]}

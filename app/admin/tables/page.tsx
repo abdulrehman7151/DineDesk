@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import TableCardActions from "./TableCardActions";
 import AddTableButton from "./AddTableButton";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 const statusStyles: Record<string, string> = {
     AVAILABLE: "bg-success-bg text-success-text",
@@ -17,6 +18,8 @@ export default async function AdminTables() {
     if (!user) {
         notFound();
     }
+
+    await requireActiveSubscription(user.restaurantId);
 
     const tables = await getTables(user.restaurantId);
 

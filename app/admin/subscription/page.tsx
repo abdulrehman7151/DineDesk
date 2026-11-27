@@ -1,15 +1,20 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/authtoke";
-import PaddleCheckoutButton from "./PaddleCheckoutButton";
+import PaddleCheckoutButton from "@/components/PaddleCheckoutButton";
 import CancelPendingCheckoutButton from "./CancelPendingCheckoutButton";
-import { PADDLE_PRICE_ID } from "@/lib/payments/paddle";
+import { getPriceTier } from "@/lib/payments/paddle";
 
 export default async function SubscriptionPage() {
     const user = await requireRole(["admin"]);
     if (!user) {
         notFound();
     }
+
+    // The price depends on where the visitor is: Pakistan pays the local
+    // tier, everyone else the international one. All charges are in USD.
+    const tier = getPriceTier((await headers()).get("x-vercel-ip-country"));
 
     const [plan, subscription] = await Promise.all([
         prisma.subscriptionPlan.findUnique({
@@ -51,8 +56,7 @@ export default async function SubscriptionPage() {
             <div>
                 <h1 className="text-2xl font-bold tracking-tight">Subscription</h1>
                 <p className="mt-2 text-sm text-ink-soft">
-                    Pay securely with Paddle (USD 5.00/month for
-                    international cards). Card details are entered only in
+                    Pay securely with Paddle. Card details are entered only in
                     Paddle&apos;s secure checkout.
                 </p>
             </div>
@@ -62,10 +66,13 @@ export default async function SubscriptionPage() {
                     <>
                         <h2 className="text-lg font-bold text-ink">{plan.name}</h2>
                         <p className="mt-2 text-2xl font-bold text-ink">
-                            {plan.currency} {(plan.price / 100).toLocaleString()}
+                            {tier.displayCurrency} {tier.displayAmount}
                             <span className="ml-1 text-sm font-normal text-ink-soft">
                                 per month
                             </span>
+                        </p>
+                        <p className="mt-1 text-xs text-ink-soft">
+                            {tier.displayNote}
                         </p>
                     </>
                 ) : (
@@ -122,7 +129,7 @@ export default async function SubscriptionPage() {
                 <div className="mt-6">
                     <PaddleCheckoutButton
                         disabled={!plan?.isActive || checkoutBlocked}
-                        priceId={PADDLE_PRICE_ID}
+                        priceId={tier.paddlePriceId}
                     />
                     {subscription?.status === "PENDING" ? (
                         <CancelPendingCheckoutButton />

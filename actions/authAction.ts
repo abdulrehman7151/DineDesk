@@ -3,53 +3,74 @@
 import bcrypt from "bcrypt";
 import { cookies } from "next/headers";
 import { createUserAndRestaurant, SignIn } from "@/services/Authservices";
+import { requestEmailVerification } from "@/services/emailVerification";
+
+export type SignupField =
+    | "restaurantName"
+    | "phone"
+    | "city"
+    | "address"
+    | "adminName"
+    | "email"
+    | "password"
+    | "confirmPassword";
 
 export type SignupState = {
     success: boolean;
     message: string;
+    email?: string;
+    needsVerification?: boolean;
+    invalidFields?: SignupField[];
 };
 
 export type SigninState = {
     success: boolean;
     message: string;
     role?: string;
+    needsVerification?: boolean;
 };
 
 export async function signup(
     prevState: SignupState,
     formData: FormData
 ): Promise<SignupState> {
-    const restaurantName = formData.get("restaurantName");
-    const phone = formData.get("phone");
-    const city = formData.get("city");
-    const address = formData.get("address");
-    const adminName = formData.get("adminName");
-    const email = formData.get("email");
-    const password = formData.get("password");
-    const confirmPassword = formData.get("confirmPassword");
+    // formData.get() returns FormDataEntryValue | null; coerce every value
+    // to a plain string up front so the later .length/.trim() uses and the
+    // bcrypt.hash() call type-check (a missing field becomes "" and is
+    // caught by the missing-fields check below, exactly as before).
+    const restaurantName = formData.get("restaurantName")?.toString() ?? "";
+    const phone = formData.get("phone")?.toString() ?? "";
+    const city = formData.get("city")?.toString() ?? "";
+    const address = formData.get("address")?.toString() ?? "";
+    const adminName = formData.get("adminName")?.toString() ?? "";
+    const email = formData.get("email")?.toString() ?? "";
+    const password = formData.get("password")?.toString() ?? "";
+    const confirmPassword = formData.get("confirmPassword")?.toString() ?? "";
 
 
-    if (
-        typeof restaurantName !== "string" ||
-        typeof phone !== "string" ||
-        typeof city !== "string" ||
-        typeof address !== "string" ||
-        typeof adminName !== "string" ||
-        typeof email !== "string" ||
-        typeof password !== "string" ||
-        typeof confirmPassword !== "string" ||
-        !restaurantName.trim() ||
-        !phone.trim() ||
-        !city.trim() ||
-        !address.trim() ||
-        !adminName.trim() ||
-        !email.trim() ||
-        !password ||
-        !confirmPassword
-    ) {
+    const missingFields: SignupField[] = [];
+    if (typeof restaurantName !== "string" || !restaurantName.trim())
+        missingFields.push("restaurantName");
+    if (typeof phone !== "string" || !phone.trim())
+        missingFields.push("phone");
+    if (typeof city !== "string" || !city.trim())
+        missingFields.push("city");
+    if (typeof address !== "string" || !address.trim())
+        missingFields.push("address");
+    if (typeof adminName !== "string" || !adminName.trim())
+        missingFields.push("adminName");
+    if (typeof email !== "string" || !email.trim())
+        missingFields.push("email");
+    if (typeof password !== "string" || !password)
+        missingFields.push("password");
+    if (typeof confirmPassword !== "string" || !confirmPassword)
+        missingFields.push("confirmPassword");
+
+    if (missingFields.length > 0) {
         return {
             success: false,
             message: "Please fill in all fields.",
+            invalidFields: missingFields,
         };
     }
 
@@ -57,6 +78,7 @@ export async function signup(
         return {
             success: false,
             message: "Passwords do not match.",
+            invalidFields: ["password", "confirmPassword"],
         };
     }
 
@@ -64,6 +86,7 @@ export async function signup(
         return {
             success: false,
             message: "Password must be at least 8 characters.",
+            invalidFields: ["password", "confirmPassword"],
         };
     }
 
@@ -80,9 +103,28 @@ export async function signup(
             phone: phone.trim(),
         });
 
+        const normalizedEmail = email.trim().toLowerCase();
+
+        try {
+            await requestEmailVerification(normalizedEmail);
+        } catch (error) {
+            console.error("Verification email error:", error);
+
+            return {
+                success: true,
+                message:
+                    "Account created! We couldn't send the verification code — please use the resend option on the verification page.",
+                email: normalizedEmail,
+                needsVerification: true,
+            };
+        }
+
         return {
             success: true,
-            message: "Account created successfully!",
+            message:
+                "Account created! We sent a 6-digit verification code to your email.",
+            email: normalizedEmail,
+            needsVerification: true,
         };
     } catch (error) {
         console.error("Signup error:", error);
@@ -91,6 +133,10 @@ export async function signup(
             return {
                 success: false,
                 message: error.message,
+                invalidFields:
+                    error.message === "This email is already registered."
+                        ? ["email"]
+                        : undefined,
             };
         }
 
@@ -130,6 +176,7 @@ export async function signInAction(
             return {
                 success: false,
                 message: result.message,
+                needsVerification: result.needsVerification,
             };
         }
 

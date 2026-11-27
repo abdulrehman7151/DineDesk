@@ -4,12 +4,15 @@ import { getStaffByRestaurant } from "@/services/StaffServices";
 import StaffClient from "./StaffClient";
 import type { StaffRole } from "@/types/staffKitchen";
 import { requireRole } from "@/lib/authtoke";
+import { requireActiveSubscription } from "@/lib/subscriptionGate";
 
 export const dynamic = "force-dynamic";
 
 export default async function StaffPage() {
     const user = await requireRole(["admin"]);
         if (!user) redirect("/signin");
+
+    await requireActiveSubscription(user.restaurantId);
 
     const memberships = await getStaffByRestaurant(user.restaurantId);
 
