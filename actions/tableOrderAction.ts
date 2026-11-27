@@ -35,24 +35,29 @@ export const SubmitTableOrderAction = async (
     }
 
     try {
-        const restaurant = await prisma.restaurant.findUnique({
-            where: { slug: restaurantSlug },
-            select: { id: true },
-        });
-
-        if (!restaurant) {
-            return { success: false, message: "Invalid restaurant." };
-        }
-
+        // One query for both: the table by its QR token, scoped to the
+        // restaurant slug. The guest page already 404s for an unknown
+        // restaurant, so on this path a miss is a bad QR code; the
+        // restaurant is only re-checked on the error path, to keep the
+        // exact "Invalid restaurant." message.
         const table = await prisma.table.findFirst({
             where: {
                 qrToken: tableId.toLowerCase(),
-                restaurantId: restaurant.id,
+                restaurant: { slug: restaurantSlug },
             },
-            select: { id: true, number: true },
+            select: { id: true, number: true, restaurantId: true },
         });
 
         if (!table) {
+            const restaurant = await prisma.restaurant.findUnique({
+                where: { slug: restaurantSlug },
+                select: { id: true },
+            });
+
+            if (!restaurant) {
+                return { success: false, message: "Invalid restaurant." };
+            }
+
             return {
                 success: false,
                 message: "This table QR code is no longer valid.",
@@ -61,13 +66,14 @@ export const SubmitTableOrderAction = async (
 
         const result = await submitTableOrder(
             cart,
-            restaurant.id,
+            table.restaurantId,
             table.id,
             table.number
         );
 
         revalidatePath("/admin/orders");
         revalidatePath("/admin/kitchen");
+        revalidatePath("/admin/tables");
         revalidatePath("/kitchen");
 
         return {

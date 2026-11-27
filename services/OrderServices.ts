@@ -33,29 +33,63 @@ export const PlacingOrderServices = async (
     }
 
     return await prisma.$transaction(async (tx) => {
-        // =========================
-        // Create the order shell
-        // =========================
-        const order = await tx.order.create({
-            data: {
+        // Create the order shell and mark the table in use. These do not
+        // depend on each other, so they run together instead of one
+        // after the other.
+        const [order] = await Promise.all([
+            tx.order.create({
+                data: {
+                    restaurantId,
+                    tableId,
+                    tableNumber,
+                    status: "PENDING",
+                },
+            }),
+            // The table is now in use until its order is served.
+            tx.table.update({
+                where: { id: tableId },
+                data: { status: "OCCUPIED" },
+            }),
+        ]);
+
+        // Fetch every distinct menu item in ONE query instead of one
+        // round trip per cart line. Only integer ids are sent, so a bad
+        // cart line still fails below with "Invalid cart line." rather
+        // than a database error.
+        const itemIds = [
+            ...new Set(
+                cart
+                    .filter((line) => Number.isInteger(line.itemId))
+                    .map((line) => line.itemId)
+            ),
+        ];
+        const menuItems = await tx.menuItem.findMany({
+            where: {
+                id: { in: itemIds },
                 restaurantId,
-                tableId,
-                tableNumber,
-                status: "PENDING",
+            },
+            include: {
+                sizes: true,
             },
         });
-
-        // The table is now in use until its order is served.
-        await tx.table.update({
-            where: { id: tableId },
-            data: { status: "OCCUPIED" },
-        });
+        const menuItemById = new Map(
+            menuItems.map((item) => [item.id, item])
+        );
 
         let total = 0;
+        const orderItemsData: {
+            orderId: number;
+            productName: string;
+            menuItemId: number;
+            menuItemSizeId: number | null;
+            quantity: number;
+            unitPrice: number;
+            notes: string | null;
+        }[] = [];
 
-        // =========================
-        // Process each cart line
-        // =========================
+        // Validate every line in cart order (same errors, same order as
+        // before) and build the rows to insert. No database I/O here:
+        // prices come from the map fetched above.
         for (const line of cart) {
             if (
                 !Number.isInteger(line.itemId) ||
@@ -66,15 +100,7 @@ export const PlacingOrderServices = async (
             }
 
             // Enforce that the menu item belongs to this restaurant
-            const menuItem = await tx.menuItem.findFirst({
-                where: {
-                    id: line.itemId,
-                    restaurantId,
-                },
-                include: {
-                    sizes: true,
-                },
-            });
+            const menuItem = menuItemById.get(line.itemId);
 
             if (!menuItem) {
                 throw new Error(
@@ -124,31 +150,29 @@ export const PlacingOrderServices = async (
             const lineTotal = unitPrice * line.quantity;
             total += lineTotal;
 
-            // =========================
-            // Persist the order line
-            // =========================
-            await tx.orderItem.create({
-                data: {
-                    orderId: order.id,
-                    productName: menuItem.ProductName,
-                    menuItemId: menuItem.id,
-                    menuItemSizeId: line.sizeId,
-                    quantity: line.quantity,
-                    unitPrice,
-                    notes: line.note ?? null,
-                },
+            orderItemsData.push({
+                orderId: order.id,
+                productName: menuItem.ProductName,
+                menuItemId: menuItem.id,
+                menuItemSizeId: line.sizeId,
+                quantity: line.quantity,
+                unitPrice,
+                notes: line.note ?? null,
             });
         }
+
+        // Insert every line in one round trip.
+        await tx.orderItem.createMany({ data: orderItemsData });
 
         // =========================
         // Finalize total
         // =========================
+        // The caller only needs id/total/status, so no order items are
+        // fetched back.
         const updatedOrder = await tx.order.update({
             where: { id: order.id },
             data: { total },
-            include: {
-                orderItems: true,
-            },
+            select: { id: true, total: true, status: true },
         });
 
         return updatedOrder;

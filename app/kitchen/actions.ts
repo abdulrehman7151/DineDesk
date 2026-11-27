@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getActiveStaff } from "@/lib/staffAuth";
-import { completeOrder } from "@/lib/orderLifecycle";
+import { completeOrder, expireStaleOrders, freeTableIfIdle } from "@/lib/orderLifecycle";
 import {
     REQUIRED_CURRENT,
     canSetStatus,
@@ -81,6 +81,25 @@ export async function updateOrderStatus(
     // until the order is completed (by hand, or by the auto-close timer),
     // so guests can still add items to it.
 
+    // A terminal status frees the table, but only when no other active
+    // order is still running on it. The kitchen can only move orders to
+    // PREPARING / READY / SERVED, so this never fires today; it is here
+    // so the release rule holds at the status-change layer no matter how
+    // a terminal status is ever reached.
+    if (
+        newStatus === "COMPLETED" ||
+        newStatus === "EXPIRED" ||
+        newStatus === "CANCELLED"
+    ) {
+        const order = await prisma.order.findUnique({
+            where: { id: orderId },
+            select: { tableId: true },
+        });
+        if (order?.tableId) {
+            await freeTableIfIdle(order.tableId);
+        }
+    }
+
     revalidatePath("/kitchen");
     revalidatePath("/admin/kitchen");
     revalidatePath("/admin/orders");
@@ -88,6 +107,67 @@ export async function updateOrderStatus(
     revalidatePath("/admin");
 
     return { success: true };
+}
+
+export type KitchenOrderDTO = {
+    id: number;
+    tableNumber: number | null;
+    status: "PENDING" | "PREPARING" | "READY";
+    createdAt: string;
+    hasNewAdditions: boolean;
+    orderItems: {
+        id: number;
+        productName: string;
+        quantity: number;
+        notes?: string;
+        isAddition: boolean;
+    }[];
+};
+
+/**
+ * Fresh kitchen orders for the current staff's restaurant, in the same
+ * shape the kitchen page passes in as initialOrders. The kitchen display
+ * calls this after every status change and every few seconds, so the list
+ * updates without a page reload — it does not rely on router.refresh(),
+ * which was not picking up the new list.
+ */
+export async function getKitchenOrders(): Promise<
+    | { success: true; orders: KitchenOrderDTO[] }
+    | { success: false; message: string; code?: "UNAUTHORIZED" }
+> {
+    const staff = await getActiveStaff();
+    if (!staff) return UNAUTHORIZED;
+
+    // Close anything stale first, same as the kitchen page.
+    await expireStaleOrders(staff.restaurantId);
+
+    // Only active orders (not SERVED, not CANCELLED)
+    const orders = await prisma.order.findMany({
+        where: {
+            restaurantId: staff.restaurantId,
+            status: { in: ["PENDING", "PREPARING", "READY"] },
+        },
+        include: { orderItems: true },
+        orderBy: { createdAt: "asc" },
+    });
+
+    return {
+        success: true,
+        orders: orders.map((o) => ({
+            id: o.id,
+            tableNumber: o.tableNumber,
+            status: o.status as "PENDING" | "PREPARING" | "READY",
+            createdAt: o.createdAt.toISOString(),
+            hasNewAdditions: o.hasNewAdditions,
+            orderItems: o.orderItems.map((i) => ({
+                id: i.id,
+                productName: i.productName,
+                quantity: i.quantity,
+                notes: i.notes ?? undefined,
+                isAddition: i.isAddition,
+            })),
+        })),
+    };
 }
 
 /** The chef confirms they have seen the items the customer added. */

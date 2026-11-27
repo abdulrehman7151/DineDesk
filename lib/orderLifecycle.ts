@@ -40,24 +40,13 @@ export function pendingCheckoutCutoff(now = new Date()): Date {
     return new Date(now.getTime() - PENDING_CHECKOUT_STALE_MS);
 }
 
-type OrderWithTable = {
-    id: number;
-    tableId: number | null;
-};
-
 async function freeTablesIfIdle(
     tx: Prisma.TransactionClient,
-    orders: OrderWithTable[]
+    tableIds: number[]
 ): Promise<void> {
-    const tableIds = [
-        ...new Set(
-            orders
-                .map((order) => order.tableId)
-                .filter((tableId): tableId is number => tableId !== null)
-        ),
-    ];
+    const uniqueTableIds = [...new Set(tableIds)];
 
-    for (const tableId of tableIds) {
+    for (const tableId of uniqueTableIds) {
         const stillActive = await tx.order.count({
             where: {
                 tableId,
@@ -72,6 +61,18 @@ async function freeTablesIfIdle(
             });
         }
     }
+}
+
+/**
+ * Release one table when no active (non-terminal) order remains on it.
+ * Terminal = COMPLETED, EXPIRED, CANCELLED. SERVED still counts as
+ * active — the food is on the table and the tab is open, so the table
+ * stays occupied until the order is completed or expires.
+ */
+export async function freeTableIfIdle(tableId: number): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+        await freeTablesIfIdle(tx, [tableId]);
+    });
 }
 
 /**
@@ -145,7 +146,12 @@ export async function expireStaleOrders(
             });
         }
 
-        await freeTablesIfIdle(tx, [...served, ...stale]);
+        await freeTablesIfIdle(
+            tx,
+            [...served, ...stale]
+                .map((order) => order.tableId)
+                .filter((tableId): tableId is number => tableId !== null)
+        );
     });
 }
 
@@ -177,7 +183,7 @@ export async function completeOrder(
         });
 
         if (order?.tableId) {
-            await freeTablesIfIdle(tx, [{ id: orderId, tableId: order.tableId }]);
+            await freeTablesIfIdle(tx, [order.tableId]);
         }
 
         return true;

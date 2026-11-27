@@ -21,13 +21,13 @@ type Props = {
     tableNumber: number | null;
     activeOrder: {
         id: number;
-        status: "PENDING" | "PREPARING" | "READY";
+        status: "PENDING" | "PREPARING" | "READY" | "SERVED";
     } | null;
 };
 
 type TrackedOrder = {
     id: number;
-    status: "PENDING" | "PREPARING" | "READY";
+    status: "PENDING" | "PREPARING" | "READY" | "SERVED";
     key: number;
 };
 
@@ -81,7 +81,9 @@ export default function HomeClient({
            "Order placed successfully!"
        );
 
-       // The table's current (unserved) order, shown in the status popup
+       // The table's current order, shown in the status popup. SERVED is
+       // included: the tab is still open, so a guest who reloads still
+       // sees "Enjoy your meal!" and can add more items.
        const [tracked, setTracked] = useState<TrackedOrder | null>(
            activeOrder
                ? { id: activeOrder.id, status: activeOrder.status, key: 0 }

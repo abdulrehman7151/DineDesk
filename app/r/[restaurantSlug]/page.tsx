@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import HomeClient from "@/app/Homeclinet";
-import { expireStaleOrders } from "@/lib/orderLifecycle";
+import { ACTIVE_ORDER_STATUSES, expireStaleOrders } from "@/lib/orderLifecycle";
 import { hasActiveSubscriptionOrExempt } from "@/lib/subscriptionGate";
 
 export const dynamic = "force-dynamic";
@@ -82,13 +82,15 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
           })
         : null;
 
-    // The table's current order, until it is marked as served
+    // The table's current order, including SERVED: the food is on the
+    // table and the tab is still open, so a guest who reloads must still
+    // see it. It only leaves once it is COMPLETED, EXPIRED or CANCELLED.
     const activeOrder = table
         ? await prisma.order.findFirst({
               where: {
                   restaurantId: restaurant.id,
                   tableId: table.id,
-                  status: { in: ["PENDING", "PREPARING", "READY"] },
+                  status: { in: [...ACTIVE_ORDER_STATUSES] },
               },
               orderBy: { createdAt: "desc" },
               select: { id: true, status: true },
@@ -117,7 +119,8 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
                           status: activeOrder.status as
                               | "PENDING"
                               | "PREPARING"
-                              | "READY",
+                              | "READY"
+                              | "SERVED",
                       }
                     : null
             }

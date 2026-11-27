@@ -43,8 +43,43 @@ async function addItemsToOrder(
                 data: { isAddition: false },
             });
 
-            let addedTotal = 0;
+            // Fetch every distinct menu item in ONE query instead of one
+            // round trip per cart line. Only integer ids are sent, so a
+            // bad cart line still fails below with "Invalid cart line."
+            // rather than a database error.
+            const itemIds = [
+                ...new Set(
+                    cart
+                        .filter((line) => Number.isInteger(line.itemId))
+                        .map((line) => line.itemId)
+                ),
+            ];
+            const menuItems = await tx.menuItem.findMany({
+                where: {
+                    id: { in: itemIds },
+                    restaurantId,
+                },
+                include: { sizes: true },
+            });
+            const menuItemById = new Map(
+                menuItems.map((item) => [item.id, item])
+            );
 
+            let addedTotal = 0;
+            const orderItemsData: {
+                orderId: number;
+                productName: string;
+                menuItemId: number;
+                menuItemSizeId: number | null;
+                quantity: number;
+                unitPrice: number;
+                notes: string | null;
+                isAddition: boolean;
+            }[] = [];
+
+            // Validate every line in cart order (same errors, same order
+            // as before) and build the rows to insert. No database I/O
+            // here: prices come from the map fetched above.
             for (const line of cart) {
                 if (
                     !Number.isInteger(line.itemId) ||
@@ -54,10 +89,7 @@ async function addItemsToOrder(
                     throw new Error("Invalid cart line.");
                 }
 
-                const menuItem = await tx.menuItem.findFirst({
-                    where: { id: line.itemId, restaurantId },
-                    include: { sizes: true },
-                });
+                const menuItem = menuItemById.get(line.itemId);
 
                 if (!menuItem) {
                     throw new Error(
@@ -97,44 +129,48 @@ async function addItemsToOrder(
 
                 addedTotal += unitPrice * line.quantity;
 
-                await tx.orderItem.create({
-                    data: {
-                        orderId: order.id,
-                        productName: menuItem.ProductName,
-                        menuItemId: menuItem.id,
-                        menuItemSizeId: line.sizeId,
-                        quantity: line.quantity,
-                        unitPrice,
-                        notes: line.note ?? null,
-                        isAddition: true,
-                    },
+                orderItemsData.push({
+                    orderId: order.id,
+                    productName: menuItem.ProductName,
+                    menuItemId: menuItem.id,
+                    menuItemSizeId: line.sizeId,
+                    quantity: line.quantity,
+                    unitPrice,
+                    notes: line.note ?? null,
+                    isAddition: true,
                 });
             }
 
-            const updated = await tx.order.update({
-                where: { id: order.id },
-                data: {
-                    total: { increment: addedTotal },
-                    hasNewAdditions: true,
-                    // Food that was already ready — or already served —
-                    // needs cooking again, so the order goes back to the
-                    // kitchen. Adding items also resets the served timer:
-                    // servedAt is cleared and only set again when the
-                    // order is served next. updatedAt refreshes on this
-                    // update, which is what the stale-order expiry counts.
-                    ...(order.status === "SERVED"
-                        ? { status: "PREPARING", servedAt: null }
-                        : order.status === "READY"
-                          ? { status: "PREPARING" }
-                          : {}),
-                },
-            });
+            // Insert every line in one round trip.
+            await tx.orderItem.createMany({ data: orderItemsData });
 
-            // Adding to an existing order also means the table is in use.
-            await tx.table.update({
-                where: { id: tableId },
-                data: { status: "OCCUPIED" },
-            });
+            // The order update and the table update do not depend on each
+            // other, so they run together.
+            const [updated] = await Promise.all([
+                tx.order.update({
+                    where: { id: order.id },
+                    data: {
+                        total: { increment: addedTotal },
+                        hasNewAdditions: true,
+                        // Food that was already ready — or already served —
+                        // needs cooking again, so the order goes back to the
+                        // kitchen. Adding items also resets the served timer:
+                        // servedAt is cleared and only set again when the
+                        // order is served next. updatedAt refreshes on this
+                        // update, which is what the stale-order expiry counts.
+                        ...(order.status === "SERVED"
+                            ? { status: "PREPARING", servedAt: null }
+                            : order.status === "READY"
+                              ? { status: "PREPARING" }
+                              : {}),
+                    },
+                }),
+                // Adding to an existing order also means the table is in use.
+                tx.table.update({
+                    where: { id: tableId },
+                    data: { status: "OCCUPIED" },
+                }),
+            ]);
 
             return updated;
         },

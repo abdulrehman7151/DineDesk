@@ -1,9 +1,9 @@
 // app/kitchen/KitchenClient.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { updateOrderStatus, acknowledgeAdditions, completeOrderAction } from "./actions";
+import { updateOrderStatus, acknowledgeAdditions, completeOrderAction, getKitchenOrders } from "./actions";
 import { logout } from "@/actions/signout";
 import { canSetStatus, type UpdatableOrderStatus } from "@/lib/orderPermissions";
 import { ORDER_STATUS_SOLID, ORDER_STATUS_TONE } from "@/lib/orderStatusColors";
@@ -83,21 +83,40 @@ export default function KitchenClient({
     const [filter, setFilter] = useState<OrderStatus>("PENDING");
     const [loadingId, setLoadingId] = useState<number | null>(null);
 
+    // The list lives in local state, seeded from the page's initial
+    // orders. It is refetched from the server after every status change
+    // and every few seconds, so the screen updates without a reload.
+    const [orders, setOrders] = useState<KitchenOrder[]>(initialOrders);
+    const refreshingRef = useRef(false);
+
+    async function refreshOrders() {
+        if (refreshingRef.current) return;
+        refreshingRef.current = true;
+        try {
+            const result = await getKitchenOrders();
+            if (result.success) setOrders(result.orders);
+        } catch (error) {
+            console.error("Failed to refresh kitchen orders:", error);
+        } finally {
+            refreshingRef.current = false;
+        }
+    }
+
     useEffect(() => {
         const interval = window.setInterval(() => {
-            router.refresh();
+            void refreshOrders();
         }, 5_000);
 
         return () => window.clearInterval(interval);
-    }, [router]);
+    }, []);
 
     const counts = {
-        PENDING: initialOrders.filter((o) => o.status === "PENDING").length,
-        PREPARING: initialOrders.filter((o) => o.status === "PREPARING").length,
-        READY: initialOrders.filter((o) => o.status === "READY").length,
+        PENDING: orders.filter((o) => o.status === "PENDING").length,
+        PREPARING: orders.filter((o) => o.status === "PREPARING").length,
+        READY: orders.filter((o) => o.status === "READY").length,
     };
 
-    const filtered = initialOrders.filter((o) => o.status === filter);
+    const filtered = orders.filter((o) => o.status === filter);
 
     async function handleButtonClick(
         orderId: number,
@@ -116,7 +135,7 @@ export default function KitchenClient({
                 }
             }
 
-            router.refresh();
+            await refreshOrders();
         } catch (error) {
             alert("Failed to update order");
             console.error(error);
@@ -139,7 +158,7 @@ export default function KitchenClient({
                 }
             }
 
-            router.refresh();
+            await refreshOrders();
         } catch (error) {
             alert("Failed to complete order");
             console.error(error);
@@ -162,7 +181,7 @@ export default function KitchenClient({
                 }
             }
 
-            router.refresh();
+            await refreshOrders();
         } catch (error) {
             console.error(error);
         } finally {

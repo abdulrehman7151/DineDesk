@@ -211,6 +211,12 @@ export default function OrderStatusTracker({
 
     const lastStatus = useRef<Status>(initialStatus);
     const isFinal = status === "SERVED" || status === "CANCELLED";
+    // A served order loaded from the page (a reload) starts closed. It
+    // must not vanish at once: the guest should still see "Order #X ·
+    // Served" and be able to reopen it. It only leaves once the order
+    // closes (COMPLETED/EXPIRED/CANCELLED) and the page no longer finds
+    // it. A cancelled order, though, goes away immediately.
+    const servedAtMount = useRef(initialStatus === "SERVED");
     const color = colorFor(status);
     const copy = COPY[status];
     const current = STEP_INDEX[status];
@@ -265,10 +271,13 @@ export default function OrderStatusTracker({
         return () => clearTimeout(timer);
     }, [open, auto, status]);
 
-    // Once the order is finished and the popup is closed, go back to the menu
+    // Once the order is finished and the popup is closed, go back to the menu.
+    // A served order that was already served when the page loaded stays as
+    // a chip instead: it only leaves once the order closes and the page
+    // stops finding it.
     useEffect(() => {
-        if (isFinal && !open) onFinished();
-    }, [isFinal, open, onFinished]);
+        if (isFinal && !open && !(servedAtMount.current && status === "SERVED")) onFinished();
+    }, [isFinal, open, onFinished, status]);
 
     const close = () => {
         setOpen(false);
@@ -372,8 +381,10 @@ export default function OrderStatusTracker({
                 </div>
             )}
 
-            {/* Chip: tap to see the status again (stays open until X) */}
-            {!open && !isFinal && (
+            {/* Chip: tap to see the status again (stays open until X).
+                A served order keeps its chip so a guest who reloads can
+                still see it; a cancelled order shows nothing. */}
+            {!open && status !== "CANCELLED" && (
                 <button
                     type="button"
                     onClick={openManually}
