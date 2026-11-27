@@ -14,7 +14,12 @@ type UpdateResult =
     | { success: true }
     | { success: false; message: string; code?: "UNAUTHORIZED" };
 
-const UNAUTHORIZED: UpdateResult = {
+// NOTE: typed as the failure variant only, not the broad UpdateResult.
+// getKitchenOrders returns { success: true; orders } on success, so a
+// value typed as UpdateResult (which includes bare { success: true }
+// with no orders) cannot be returned from it (TS2322). The failure
+// variant is assignable to every return type used here.
+const UNAUTHORIZED: { success: false; message: string; code: "UNAUTHORIZED" } = {
     success: false,
     message: "Your session has expired. Please sign in again.",
     code: "UNAUTHORIZED",
