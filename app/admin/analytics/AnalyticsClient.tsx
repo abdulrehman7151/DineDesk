@@ -8,6 +8,12 @@ import {
     getPakistanDayRange,
     getPakistanHour,
 } from "@/lib/pakistanTime";
+import {
+    CATEGORY_BAR_COLORS,
+    CATEGORY_TEXT_COLORS,
+    METRIC_TONE,
+    type MetricToneKey,
+} from "@/lib/orderStatusColors";
 
 type Period = 7 | 30 | 90;
 
@@ -250,12 +256,13 @@ export default function AnalyticsClient({ orders }: Props) {
                 className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
                 aria-label="Sales summary"
             >
-                <SummaryCard label="Revenue" value={formatMoney(revenue)} />
+                <SummaryCard label="Revenue" value={formatMoney(revenue)} tone="revenue" />
                 <SummaryCard
                     label="Served orders"
                     value={filteredOrders.length.toLocaleString()}
+                    tone="orders"
                 />
-                <SummaryCard label="Average order" value={formatMoney(averageOrder)} />
+                <SummaryCard label="Average order" value={formatMoney(averageOrder)} tone="average" />
                 <SummaryCard
                     label="Best sales day"
                     value={
@@ -308,7 +315,7 @@ export default function AnalyticsClient({ orders }: Props) {
                                     </span>
                                     <div className="flex h-[78%] w-full items-end">
                                         <div
-                                            className="mx-auto w-3/4 min-w-2 rounded-t-md bg-brand transition-all"
+                                            className="mx-auto w-3/4 min-w-2 rounded-t-md bg-emerald-500 transition-all"
                                             style={{
                                                 height: `${Math.max(
                                                     (bucket.revenue / maxBucketRevenue) * 100,
@@ -324,7 +331,7 @@ export default function AnalyticsClient({ orders }: Props) {
                             ))}
                         </div>
                         <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-ink-soft">
-                            <span className="h-2.5 w-2.5 rounded-sm bg-brand" />
+                            <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
                             Revenue
                             <span className="ml-auto">Order count above each bar</span>
                         </div>
@@ -410,7 +417,7 @@ export default function AnalyticsClient({ orders }: Props) {
                                     </div>
                                     <div className="ml-9 mt-2 h-1.5 overflow-hidden rounded-full bg-surface-warm">
                                         <div
-                                            className="h-full rounded-full bg-brand"
+                                            className={`h-full rounded-full ${CATEGORY_BAR_COLORS[index % CATEGORY_BAR_COLORS.length]}`}
                                             style={{
                                                 width: `${(item.quantity / maxItemQuantity) * 100}%`,
                                             }}
@@ -434,7 +441,7 @@ export default function AnalyticsClient({ orders }: Props) {
                 </div>
                 {categories.length ? (
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        {categories.map((category) => (
+                        {categories.map((category, index) => (
                             <div
                                 key={category.name}
                                 className="rounded-xl border border-hairline bg-surface-tint p-4"
@@ -449,13 +456,13 @@ export default function AnalyticsClient({ orders }: Props) {
                                 </div>
                                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-warm">
                                     <div
-                                        className="h-full rounded-full bg-brand"
+                                        className={`h-full rounded-full ${CATEGORY_BAR_COLORS[index % CATEGORY_BAR_COLORS.length]}`}
                                         style={{
                                             width: `${(category.amount / maxCategoryRevenue) * 100}%`,
                                         }}
                                     />
                                 </div>
-                                <p className="mt-2 text-[10px] font-bold uppercase tracking-wide text-brand">
+                                <p className={`mt-2 text-[10px] font-bold uppercase tracking-wide ${CATEGORY_TEXT_COLORS[index % CATEGORY_TEXT_COLORS.length]}`}>
                                     {categoryRevenueTotal
                                         ? `${Math.round((category.amount / categoryRevenueTotal) * 100)}% of item revenue`
                                         : "0% of item revenue"}
@@ -475,15 +482,17 @@ function SummaryCard({
     label,
     value,
     detail,
+    tone,
 }: {
     label: string;
     value: string;
     detail?: string;
+    tone?: MetricToneKey;
 }) {
     return (
         <div className="rounded-card border border-hairline bg-surface p-5 shadow-soft">
             <p className="text-xs font-medium text-ink-soft">{label}</p>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
+            <p className={`mt-2 text-2xl font-bold tracking-tight ${tone ? METRIC_TONE[tone].value : "text-ink"}`}>
                 {value}
             </p>
             {detail && <p className="mt-1 text-[11px] text-ink-muted">{detail}</p>}

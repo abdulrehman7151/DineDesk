@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { updateOrderStatus, acknowledgeAdditions, completeOrderAction } from "./actions";
 import { logout } from "@/actions/signout";
 import { canSetStatus, type UpdatableOrderStatus } from "@/lib/orderPermissions";
+import { ORDER_STATUS_SOLID, ORDER_STATUS_TONE } from "@/lib/orderStatusColors";
 
 type OrderStatus = "PENDING" | "PREPARING" | "READY";
 
@@ -32,12 +33,6 @@ const statusLabels: Record<OrderStatus, string> = {
     READY: "Ready",
 };
 
-const statusStyles: Record<OrderStatus, string> = {
-    PENDING: "bg-surface-warm text-ink-soft border-hairline",
-    PREPARING: "bg-brand-soft text-brand border-brand/20",
-    READY: "bg-success-bg text-success-text border-success-text/20",
-};
-
 // The one button each order status shows, and who handles the next step
 const ACTIONS: Record<
     OrderStatus,
@@ -46,19 +41,19 @@ const ACTIONS: Record<
     PENDING: {
         to: "PREPARING",
         label: "Start Preparing",
-        style: "bg-brand text-white",
+        style: "bg-amber-500 text-white",
         waiting: "Waiting for the kitchen to start",
     },
     PREPARING: {
         to: "READY",
         label: "Mark as Ready",
-        style: "bg-success-text text-white",
+        style: "bg-violet-600 text-white",
         waiting: "Being prepared by the kitchen",
     },
     READY: {
         to: "SERVED",
         label: "Mark as Served",
-        style: "border border-hairline bg-surface-tint text-ink",
+        style: "bg-emerald-600 text-white",
         waiting: "Waiting to be served",
     },
 };
@@ -230,7 +225,7 @@ export default function KitchenClient({
                                 type="button"
                                 onClick={() => setFilter(f)}
                                 className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold ${active
-                                    ? "bg-brand text-white"
+                                    ? ORDER_STATUS_SOLID[f]
                                     : "border border-hairline bg-surface text-ink-soft"
                                     }`}
                             >
@@ -299,7 +294,7 @@ export default function KitchenClient({
                                             {timeAgo(order.createdAt)}
                                         </span>
                                         <span
-                                            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${statusStyles[order.status]}`}
+                                            className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase ${ORDER_STATUS_TONE[order.status]}`}
                                         >
                                             {statusLabels[order.status]}
                                         </span>

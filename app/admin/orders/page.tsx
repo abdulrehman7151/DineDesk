@@ -2,20 +2,11 @@ import { redirect } from "next/navigation";
 import { getUserFromToken } from "@/lib/authtoke";
 import { prisma } from "@/lib/prisma";
 import { expireStaleOrders } from "@/lib/orderLifecycle";
+import { orderStatusTone } from "@/lib/orderStatusColors";
 import { requireActiveSubscription } from "@/lib/subscriptionGate";
 import CompleteOrderButton from "./CompleteOrderButton";
 
 const ACTIVE_STATUSES = ["PENDING", "PREPARING", "READY", "SERVED"];
-
-const statusTone: Record<string, string> = {
-    PENDING: "bg-surface-warm text-ink-soft",
-    PREPARING: "bg-brand-soft text-brand",
-    READY: "bg-success-bg text-success-text",
-    SERVED: "bg-surface-tint text-ink-soft",
-    COMPLETED: "bg-success-bg text-success-text",
-    EXPIRED: "bg-surface-warm text-ink-soft",
-    CANCELLED: "bg-red-100 text-red-700",
-};
 
 export default async function AdminOrders() {
     const user = await getUserFromToken();
@@ -104,7 +95,7 @@ export default async function AdminOrders() {
                                             {order.createdAt.toLocaleString()}
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${statusTone[order.status]}`}>
+                                            <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${orderStatusTone(order.status)}`}>
                                                 {order.status.charAt(0) + order.status.slice(1).toLowerCase()}
                                             </span>
                                         </td>

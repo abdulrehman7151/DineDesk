@@ -276,14 +276,26 @@ async function applyEvent(event: PaddleWebhookEvent) {
             // subscription checkout; if it ever sends none, fall back to
             // the cheapest tier's amount as the floor.
             const items = Array.isArray(data.items) ? data.items : [];
+            // Paddle sends the price id nested as `price.id` on each
+            // item (e.g. { price: { id: "pri_..." }, quantity: 1 });
+            // accept a top-level `price_id` too for older payloads.
+            // Reading only `price_id` matched nothing, so no payment
+            // ever activated a subscription.
             const matchedTier =
                 items
-                    .map((item) =>
-                        isRecord(item) &&
-                        typeof item.price_id === "string"
-                            ? getPriceTierByPriceId(item.price_id)
-                            : null
-                    )
+                    .map((item) => {
+                        if (!isRecord(item)) return null;
+                        const priceId =
+                            typeof item.price_id === "string"
+                                ? item.price_id
+                                : isRecord(item.price) &&
+                                    typeof item.price.id === "string"
+                                  ? item.price.id
+                                  : null;
+                        return priceId
+                            ? getPriceTierByPriceId(priceId)
+                            : null;
+                    })
                     .find((tier) => tier !== null) ?? null;
             const priceMatches = items.length === 0 || matchedTier !== null;
             const minimumAmount = matchedTier ? matchedTier.amountMinor : 900;

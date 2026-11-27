@@ -92,10 +92,28 @@ const CSS = `
 `;
 
 function colorFor(status: Status) {
-    if (status === "READY" || status === "SERVED") return "text-success-text";
-    if (status === "CANCELLED") return "text-ink-soft";
-    return "text-brand";
+    switch (status) {
+        case "PENDING":
+            return "text-sky-700";
+        case "PREPARING":
+            return "text-amber-700";
+        case "READY":
+            return "text-violet-700";
+        case "SERVED":
+            return "text-emerald-700";
+        case "CANCELLED":
+            return "text-red-700";
+    }
 }
+
+// Countdown bar colour, matching the current status.
+const BAR_COLOR: Record<Status, string> = {
+    PENDING: "bg-sky-500/60",
+    PREPARING: "bg-amber-500/60",
+    READY: "bg-violet-500/60",
+    SERVED: "bg-emerald-500/60",
+    CANCELLED: "bg-red-500/60",
+};
 
 function StatusIllustration({
     status,
@@ -277,7 +295,7 @@ export default function OrderStatusTracker({
                         {auto && (
                             <div
                                 key={status}
-                                className="dd-countdown absolute left-0 top-0 h-1 w-full bg-brand/60"
+                                className={`dd-countdown absolute left-0 top-0 h-1 w-full ${BAR_COLOR[status]}`}
                             />
                         )}
 

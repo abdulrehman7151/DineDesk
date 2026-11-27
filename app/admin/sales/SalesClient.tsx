@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { METRIC_TONE, type MetricToneKey } from "@/lib/orderStatusColors";
 
 type Period = "today" | "week" | "month" | "year";
 
@@ -206,9 +207,9 @@ export default function SalesClient({ orders }: Props) {
 
             {/* Summary */}
             <div className="grid gap-4 sm:grid-cols-3">
-                <SummaryCard label="Total Revenue" value={formatMoney(revenue)} />
-                <SummaryCard label="Served Orders" value={String(orderCount)} />
-                <SummaryCard label="Average Order" value={formatMoney(averageOrder)} />
+                <SummaryCard label="Total Revenue" value={formatMoney(revenue)} tone="revenue" />
+                <SummaryCard label="Served Orders" value={String(orderCount)} tone="orders" />
+                <SummaryCard label="Average Order" value={formatMoney(averageOrder)} tone="average" />
             </div>
 
             {/* Revenue Line Chart */}
@@ -272,11 +273,11 @@ export default function SalesClient({ orders }: Props) {
     );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({ label, value, tone }: { label: string; value: string; tone: MetricToneKey }) {
     return (
         <div className="rounded-card border border-hairline bg-surface p-5 shadow-soft">
             <p className="text-xs font-medium text-ink-soft">{label}</p>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-ink">{value}</p>
+            <p className={`mt-2 text-2xl font-bold tracking-tight ${METRIC_TONE[tone].value}`}>{value}</p>
         </div>
     );
 }
@@ -361,7 +362,7 @@ function RevenueLineChart({
                     points={linePoints}
                     fill="none"
                     stroke="currentColor"
-                    className="text-brand"
+                    className="text-emerald-600"
                     strokeWidth="3"
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -374,7 +375,7 @@ function RevenueLineChart({
                         cy={p.y}
                         r="5"
                         fill="currentColor"
-                        className="text-brand"
+                        className="text-emerald-600"
                     />
                 ))}
 
@@ -433,7 +434,7 @@ function RevenueBarChart({
                         </div>
                         <div className="h-3 overflow-hidden rounded-full bg-surface-warm">
                             <div
-                                className="h-full rounded-full bg-brand transition-all duration-500"
+                                className="h-full rounded-full bg-emerald-500 transition-all duration-500"
                                 style={{ width: `${percentage}%` }}
                             />
                         </div>

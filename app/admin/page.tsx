@@ -8,6 +8,7 @@ import { getPakistanDayRange } from "@/lib/pakistanTime";
 import { getPriceTier } from "@/lib/payments/paddle";
 import { expireStaleOrders } from "@/lib/orderLifecycle";
 import { requireActiveSubscription } from "@/lib/subscriptionGate";
+import { METRIC_TONE, orderStatusTone, type MetricToneKey } from "@/lib/orderStatusColors";
 
 const quickActions = [
     {
@@ -170,22 +171,26 @@ export default async function AdminDashboard() {
         const averageOrderValue =
         todaysOrderCount > 0 ? Math.round(Revenue / todaysOrderCount) : 0;
 
-    const stats = [
+    const stats: { label: string; value: string; tone: MetricToneKey }[] = [
         {
             label: "Today's Revenue",
             value: `Rs. ${Revenue.toLocaleString()}`,
+            tone: "revenue",
         },
         {
             label: "Orders Today",
             value: `${todaysOrderCount}`,
+            tone: "orders",
         },
         {
             label: "Active Tables",
             value: `${occupiedTables.length}/${tables.length}`,
+            tone: "tables",
         },
         {
             label: "Avg. Order Value",
             value: `Rs. ${averageOrderValue.toLocaleString()}`,
+            tone: "average",
         },
     ];
 
@@ -229,17 +234,18 @@ export default async function AdminDashboard() {
                 {stats.map((s) => (
                     <div
                         key={s.label}
-                        className="rounded-card border border-hairline bg-surface p-5 shadow-soft"
+                        className="overflow-hidden rounded-card border border-hairline bg-surface shadow-soft"
                     >
-                        <p className="text-xs font-medium text-ink-soft">
-                            {s.label}
-                        </p>
+                        <div className={`h-1.5 ${METRIC_TONE[s.tone].bar}`} />
+                        <div className="p-5">
+                            <p className="text-xs font-medium text-ink-soft">
+                                {s.label}
+                            </p>
 
-                        <p className="mt-2 text-2xl font-bold tracking-tight text-ink">
-                            {s.value}
-                        </p>
-
-                        
+                            <p className={`mt-2 text-2xl font-bold tracking-tight ${METRIC_TONE[s.tone].value}`}>
+                                {s.value}
+                            </p>
+                        </div>
                     </div>
                 ))}
             </div>
@@ -318,7 +324,7 @@ export default async function AdminDashboard() {
                                             </td>
 
                                             <td className="px-6 py-3.5">
-                                                <span className="rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand">
+                                                <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${orderStatusTone(o.status)}`}>
                                                     {o.status}
                                                 </span>
                                             </td>
