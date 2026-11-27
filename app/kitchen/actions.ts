@@ -86,11 +86,13 @@ export async function updateOrderStatus(
     // PREPARING / READY / SERVED, so this never fires today; it is here
     // so the release rule holds at the status-change layer no matter how
     // a terminal status is ever reached.
-    if (
-        newStatus === "COMPLETED" ||
-        newStatus === "EXPIRED" ||
-        newStatus === "CANCELLED"
-    ) {
+    // NOTE: newStatus was narrowed to UpdatableOrderStatus
+    // ("PREPARING" | "READY" | "SERVED") by isUpdatableStatus above, so a
+    // direct === against a terminal status is a type error (TS2367 — the
+    // two types have no overlap). Compare through a plain string array
+    // instead, which keeps the safety net without the type error.
+    const TERMINAL_STATUSES: string[] = ["COMPLETED", "EXPIRED", "CANCELLED"];
+    if (TERMINAL_STATUSES.includes(newStatus)) {
         const order = await prisma.order.findUnique({
             where: { id: orderId },
             select: { tableId: true },
