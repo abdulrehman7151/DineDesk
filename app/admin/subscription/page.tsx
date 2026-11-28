@@ -2,9 +2,16 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/authtoke";
-import { pendingCheckoutCutoff } from "@/lib/orderLifecycle";
+import {
+    expireStalePendingSubscriptions,
+    pendingCheckoutCutoff,
+} from "@/lib/orderLifecycle";
 import PaddleCheckoutButton from "@/components/PaddleCheckoutButton";
-import { getPriceTier } from "@/lib/payments/paddle";
+import CancelPendingCheckoutButton from "@/components/CancelPendingCheckoutButton";
+import {
+    getPriceTier,
+    getPriceTierByAmountMinor,
+} from "@/lib/payments/paddle";
 
 // Status badge colours, matching the order-status palette.
 const SUBSCRIPTION_STATUS_TONE: Record<string, string> = {
@@ -44,10 +51,17 @@ export default async function SubscriptionPage() {
         notFound();
     }
 
+    // Abandoned checkouts older than a day stop blocking here: they are
+    // cancelled on load so they neither block a new checkout nor keep
+    // showing as a live pending payment.
+    await expireStalePendingSubscriptions(user.restaurantId);
+
     // The price depends on where the visitor is: Pakistan pays the local
     // tier, the USA pays the US tier, every other country the
     // international tier. All charges are in USD.
-    const tier = getPriceTier((await headers()).get("x-vercel-ip-country"));
+    const geoTier = getPriceTier(
+        (await headers()).get("x-vercel-ip-country")
+    );
 
     const [plan, subscription] = await Promise.all([
         prisma.subscriptionPlan.findUnique({
@@ -61,6 +75,7 @@ export default async function SubscriptionPage() {
             orderBy: { createdAt: "desc" },
             select: {
                 status: true,
+                createdAt: true,
                 currentPeriodEnd: true,
                 payments: {
                     orderBy: { createdAt: "desc" },
@@ -75,6 +90,19 @@ export default async function SubscriptionPage() {
             },
         }),
     ]);
+
+    // If a checkout is already pending, show the price that checkout was
+    // started with (stored on its payment) instead of re-deriving a
+    // possibly different tier from the visitor's current location — a
+    // checkout opened from the US ($39) must not suddenly display as $9
+    // when the page is reloaded from Pakistan. The checkout button below
+    // uses this same tier, so a retry charges the price shown. With no
+    // pending checkout, the geo tier applies.
+    const lastPayment = subscription?.payments[0];
+    const tier =
+        subscription?.status === "PENDING" && lastPayment
+            ? (getPriceTierByAmountMinor(lastPayment.amount) ?? geoTier)
+            : geoTier;
 
     // Only an active subscription — or a checkout started in the last
     // day — blocks a new checkout. A PENDING row older than that was
@@ -95,7 +123,6 @@ export default async function SubscriptionPage() {
         select: { id: true },
     });
     const checkoutBlocked = blockingSubscription !== null;
-    const lastPayment = subscription?.payments[0];
 
     // An ACTIVE subscription has been paid for. If the stored payment
     // row is still PENDING (its transaction.completed event was missed),
@@ -106,6 +133,28 @@ export default async function SubscriptionPage() {
         lastPayment.status === "PENDING"
             ? "SUCCEEDED"
             : lastPayment?.status;
+
+    // A PENDING payment with no payment date means checkout was started
+    // but never completed — no money moved. Never present it as a
+    // "last payment". Only a paid, failed or refunded payment (or one
+    // with a payment date) is shown as a last payment.
+    const showLastPayment =
+        lastPayment &&
+        (lastPaymentStatus === "SUCCEEDED" ||
+            lastPaymentStatus === "FAILED" ||
+            lastPaymentStatus === "REFUNDED" ||
+            lastPayment.paidAt !== null);
+    const showNoPaymentYet =
+        lastPayment &&
+        !showLastPayment &&
+        lastPayment.status === "PENDING" &&
+        lastPayment.paidAt === null;
+
+    // The cancel button only appears when a recent PENDING checkout is
+    // the thing blocking a new one. (checkoutBlocked is also true for
+    // an ACTIVE subscription, which must never offer a cancel here.)
+    const hasBlockingPending =
+        checkoutBlocked && subscription?.status === "PENDING";
 
     return (
         <section className="mx-auto max-w-2xl space-y-6">
@@ -160,7 +209,9 @@ export default async function SubscriptionPage() {
                                 )}
                             </p>
                         ) : null}
-                        {lastPayment && lastPaymentStatus ? (
+                        {lastPayment &&
+                        showLastPayment &&
+                        lastPaymentStatus ? (
                             <p>
                                 Last payment: {lastPayment.currency}{" "}
                                 {(lastPayment.amount / 100).toLocaleString()} ·{" "}
@@ -175,6 +226,12 @@ export default async function SubscriptionPage() {
                                           }
                                       )}`
                                     : ""}
+                            </p>
+                        ) : null}
+                        {showNoPaymentYet ? (
+                            <p>
+                                No payment made yet — checkout was started
+                                but not completed.
                             </p>
                         ) : null}
                         {subscription.status === "PAST_DUE" ? (
@@ -192,6 +249,19 @@ export default async function SubscriptionPage() {
                         priceId={tier.paddlePriceId}
                     />
                 </div>
+
+                {hasBlockingPending ? (
+                    <div className="mt-6 rounded-card border border-amber-200 bg-amber-50 p-4">
+                        <p className="text-sm text-ink">
+                            A checkout was started but not paid for, so a
+                            new checkout is blocked. No money was taken.
+                            You can cancel it and subscribe again now.
+                        </p>
+                        <div className="mt-3">
+                            <CancelPendingCheckoutButton />
+                        </div>
+                    </div>
+                ) : null}
             </div>
         </section>
     );

@@ -40,6 +40,26 @@ export function pendingCheckoutCutoff(now = new Date()): Date {
     return new Date(now.getTime() - PENDING_CHECKOUT_STALE_MS);
 }
 
+// Cancel PENDING subscription checkouts abandoned more than a day ago
+// (the customer closed the payment page and never paid). Only PENDING
+// rows are touched — ACTIVE, PAST_DUE and paid rows are never modified,
+// and the PENDING payment rows are left alone (they stay PENDING under
+// a CANCELLED subscription, and the subscription page never presents
+// them as a payment). Run lazily from the subscription page load, so no
+// cron job or other background infrastructure is needed.
+export async function expireStalePendingSubscriptions(
+    restaurantId: number
+): Promise<void> {
+    await prisma.subscription.updateMany({
+        where: {
+            restaurantId,
+            status: "PENDING",
+            createdAt: { lt: pendingCheckoutCutoff() },
+        },
+        data: { status: "CANCELLED", cancelledAt: new Date() },
+    });
+}
+
 async function freeTablesIfIdle(
     tx: Prisma.TransactionClient,
     tableIds: number[]

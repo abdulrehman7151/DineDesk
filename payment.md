@@ -30,8 +30,10 @@ a USD price, displayed in rupees.
   custom data.
 - `services/PaddleSubscriptionservices.ts` reads the plan from the
   database and creates the pending subscription/payment. A checkout
-  started in the last day blocks a new one; an older abandoned checkout
-  does not.
+  started in the last day blocks a new one, but the admin can cancel
+  it from the subscription page and subscribe again immediately; an
+  older abandoned checkout is cancelled automatically when the
+  subscription page loads.
 - `app/api/webhooks/paddle/route.ts` receives Paddle events, validates
   their signature, ignores duplicate event IDs, checks the amount and
   currency against the known price tiers, and updates payment and

@@ -3,7 +3,10 @@
 
 import { requireRole } from "@/lib/authtoke";
 import { getPriceTierByPriceId } from "@/lib/payments/paddle";
-import { startPaddleSubscriptionCheckoutService } from "@/services/PaddleSubscriptionservices";
+import {
+    cancelPendingSubscriptionCheckoutService,
+    startPaddleSubscriptionCheckoutService,
+} from "@/services/PaddleSubscriptionservices";
 
 export async function startPaddleSubscriptionCheckout(priceId: string) {
     try {
@@ -38,7 +41,7 @@ export async function startPaddleSubscriptionCheckout(priceId: string) {
         const safeMessages = new Set([
             "Basic subscription plan is unavailable.",
             "Your restaurant already has an active subscription.",
-            "A subscription checkout is already in progress. Finish it, or wait a day for it to lapse, before starting another.",
+            "A subscription checkout is already in progress. Cancel it on the subscription page and try again — no payment has been taken.",
         ]);
 
         return {
@@ -47,6 +50,33 @@ export async function startPaddleSubscriptionCheckout(priceId: string) {
                 error instanceof Error && safeMessages.has(error.message)
                     ? error.message
                     : "Unable to start checkout. Please try again.",
+        };
+    }
+}
+
+// Cancel a checkout that was started but never paid for, so the
+// restaurant can subscribe again immediately instead of being blocked
+// for a day. Only PENDING checkouts are cancelled; active or paid
+// subscriptions are never touched.
+export async function cancelPendingSubscriptionCheckout() {
+    try {
+        const user = await requireRole(["admin"]);
+
+        if (!user) {
+            return {
+                success: false,
+                message: "Unauthorized. Admin access required.",
+            };
+        }
+
+        return await cancelPendingSubscriptionCheckoutService(
+            user.restaurantId
+        );
+    } catch (error) {
+        console.error("Paddle cancel pending checkout action error:", error);
+        return {
+            success: false,
+            message: "Unable to cancel the pending checkout. Please try again.",
         };
     }
 }

@@ -85,3 +85,19 @@ export function getPriceTierByPriceId(priceId: string): PriceTier | null {
         ) ?? null
     );
 }
+
+// A pending payment stores the tier that was being bought as a USD minor
+// amount (900 / 2500 / 3900). Resolve it back to the tier so the
+// subscription page shows the price the checkout was actually started
+// with, instead of re-deriving a possibly different tier from the
+// visitor's current location. Returns null for an unknown amount, in
+// which case callers fall back to the geo tier.
+export function getPriceTierByAmountMinor(
+    amountMinor: number
+): PriceTier | null {
+    return (
+        Object.values(PRICE_TIERS).find(
+            (tier) => tier.amountMinor === amountMinor
+        ) ?? null
+    );
+}

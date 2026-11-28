@@ -370,17 +370,49 @@ async function applyEvent(event: PaddleWebhookEvent) {
                                     paidAt: new Date(),
                                 },
                             });
-                        } else if (data.origin === "subscription_recurring") {
-                            await transaction.payment.create({
-                                data: {
-                                    subscriptionId: subscription.id,
-                                    amount: total,
-                                    currency,
-                                    status: "SUCCEEDED",
-                                    paddleTransactionId: transactionId,
-                                    paidAt: new Date(),
-                                },
-                            });
+                        } else {
+                            // subscription.activated may already have
+                            // marked the pending payment SUCCEEDED at the
+                            // tier list price, without the Paddle
+                            // transaction id — so there is no PENDING
+                            // payment left for this branch to find. Update
+                            // that row with the real charged total (which
+                            // can include tax, e.g. $42.46 on a $39 tier)
+                            // instead of leaving the list price recorded
+                            // and the real payment unlinked.
+                            const activatedPayment =
+                                await transaction.payment.findFirst({
+                                    where: {
+                                        subscriptionId: subscription.id,
+                                        status: "SUCCEEDED",
+                                        paddleTransactionId: null,
+                                    },
+                                    orderBy: { createdAt: "desc" },
+                                });
+                            if (activatedPayment) {
+                                await transaction.payment.update({
+                                    where: { id: activatedPayment.id },
+                                    data: {
+                                        amount: total,
+                                        currency,
+                                        paddleTransactionId: transactionId,
+                                        paidAt: new Date(),
+                                    },
+                                });
+                            } else if (
+                                data.origin === "subscription_recurring"
+                            ) {
+                                await transaction.payment.create({
+                                    data: {
+                                        subscriptionId: subscription.id,
+                                        amount: total,
+                                        currency,
+                                        status: "SUCCEEDED",
+                                        paddleTransactionId: transactionId,
+                                        paidAt: new Date(),
+                                    },
+                                });
+                            }
                         }
 
                         await transaction.subscription.update({

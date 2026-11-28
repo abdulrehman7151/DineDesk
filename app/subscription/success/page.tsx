@@ -19,14 +19,19 @@ export default async function SubscriptionSuccessPage({
           })
         : null;
 
+    const isActive = subscription?.status === "ACTIVE";
+
     return (
         <main className="mx-auto max-w-xl p-8">
-            <h1 className="text-2xl font-bold">Payment received for verification</h1>
+            <h1 className="text-2xl font-bold">
+                {isActive
+                    ? "Payment confirmed — your subscription is active"
+                    : "Checkout complete — payment being confirmed"}
+            </h1>
             <p className="mt-3 text-sm text-ink-soft">
-                Paddle is confirming the payment. Your subscription will only
-                become active after our server verifies the payment
-                notification. That usually takes a few moments — refresh your
-                subscription page to see the updated status.
+                {isActive
+                    ? "Your subscription is active. You can now use all admin features."
+                    : "Paddle is confirming the payment. Your subscription will only become active after our server verifies the payment notification. That usually takes a few moments — refresh your subscription page to see the updated status."}
             </p>
 
             {reference ? (

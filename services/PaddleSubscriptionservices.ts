@@ -49,7 +49,7 @@ export async function startPaddleSubscriptionCheckoutService(
 
     if (pendingSubscription) {
         throw new Error(
-            "A subscription checkout is already in progress. Finish it, or wait a day for it to lapse, before starting another."
+            "A subscription checkout is already in progress. Cancel it on the subscription page and try again — no payment has been taken."
         );
     }
 
@@ -75,4 +75,56 @@ export async function startPaddleSubscriptionCheckoutService(
     });
 
     return { success: true, reference, customerEmail };
+}
+
+// Cancel a checkout that was started but never paid for. Only PENDING
+// subscriptions of this restaurant are touched, and only their PENDING
+// payments are removed — an ACTIVE or PAST_DUE subscription and any paid
+// (SUCCEEDED) payment are never modified here. The subscription row is
+// kept as CANCELLED (with its reference) so a late webhook for the
+// abandoned checkout cannot reactivate it, and so the attempt stays
+// auditable. After this the restaurant can subscribe again immediately.
+export async function cancelPendingSubscriptionCheckoutService(
+    restaurantId: number
+) {
+    const pendingSubscriptions = await prisma.subscription.findMany({
+        where: {
+            restaurantId,
+            status: "PENDING",
+        },
+        select: { id: true },
+    });
+
+    if (pendingSubscriptions.length === 0) {
+        return {
+            success: false,
+            message: "There is no pending checkout to cancel.",
+        };
+    }
+
+    const ids = pendingSubscriptions.map(
+        (subscription) => subscription.id
+    );
+
+    await prisma.$transaction(async (tx) => {
+        await tx.payment.deleteMany({
+            where: {
+                subscriptionId: { in: ids },
+                status: "PENDING",
+            },
+        });
+        await tx.subscription.updateMany({
+            where: {
+                id: { in: ids },
+                status: "PENDING",
+            },
+            data: { status: "CANCELLED", cancelledAt: new Date() },
+        });
+    });
+
+    return {
+        success: true,
+        message:
+            "Pending checkout cancelled. You can subscribe again now — no money was taken.",
+    };
 }
