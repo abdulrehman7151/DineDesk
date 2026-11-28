@@ -72,6 +72,182 @@ function isOpenNow(
     return nowMin >= open && nowMin < close;
 }
 
+// Inline SVG icons for the category tiles — no emoji. Keyword-matched
+// so custom categories (BBQ, Karahi, Biryani, ...) get a sensible icon
+// too, and anything unknown falls back to a serving cloche.
+function CategoryIcon({
+    category,
+    className,
+}: {
+    category: string;
+    className?: string;
+}) {
+    const svgProps: React.SVGProps<SVGSVGElement> = {
+        fill: "none",
+        stroke: "currentColor",
+        strokeWidth: 1.8,
+        strokeLinecap: "round",
+        strokeLinejoin: "round",
+        viewBox: "0 0 24 24",
+    };
+    const name = category.toLowerCase();
+    if (name === "all") {
+        return (
+            <svg {...svgProps} className={className}>
+                <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+                <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+                <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+                <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
+            </svg>
+        );
+    }
+    if (name.includes("burger")) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M4.5 10a7.5 7.5 0 0 1 15 0Z" />
+                <path d="M3.5 13.5h17" />
+                <path d="M4.5 17.5h15" />
+            </svg>
+        );
+    }
+    if (name.includes("pizza")) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M5 4.5h14L12 20 5 4.5Z" />
+                <path d="M12 9h.01M10 13h.01M14.5 13h.01" />
+            </svg>
+        );
+    }
+    if (
+        name.includes("fries") ||
+        name.includes("side") ||
+        name.includes("snack") ||
+        name.includes("chips")
+    ) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M7.5 9 6 19.5a1.8 1.8 0 0 0 1.8 2.1h8.4a1.8 1.8 0 0 0 1.8-2.1L16.5 9" />
+                <path d="M8.5 9V5M12 9V3.5M15.5 9V5" />
+            </svg>
+        );
+    }
+    if (
+        name.includes("drink") ||
+        name.includes("beverage") ||
+        name.includes("juice") ||
+        name.includes("shake") ||
+        name.includes("soda") ||
+        name.includes("tea") ||
+        name.includes("coffee") ||
+        name.includes("lassi")
+    ) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M6 6h12l-1.4 13a2 2 0 0 1-2 1.8H9.4a2 2 0 0 1-2-1.8L6 6Z" />
+                <path d="M13.5 6 15.5 3" />
+                <path d="M6.5 10.5h11" />
+            </svg>
+        );
+    }
+    if (
+        name.includes("dessert") ||
+        name.includes("cake") ||
+        name.includes("ice") ||
+        name.includes("sweet") ||
+        name.includes("brownie") ||
+        name.includes("pastry")
+    ) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M4 20.5h16" />
+                <path d="M5 20.5v-6L12 9.5l7 5v6" />
+                <path d="M12 9.5V6.5" />
+                <circle cx="12" cy="5.2" r="0.9" />
+            </svg>
+        );
+    }
+    if (name.includes("chicken")) {
+        return (
+            <svg {...svgProps} className={className}>
+                <ellipse cx="10" cy="10" rx="6.2" ry="5" transform="rotate(-45 10 10)" />
+                <path d="M13.8 13.8 18 18" />
+                <circle cx="19.2" cy="19.2" r="1.5" />
+            </svg>
+        );
+    }
+    if (
+        name.includes("pasta") ||
+        name.includes("noodle") ||
+        name.includes("spaghetti") ||
+        name.includes("macaroni")
+    ) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M4 12.5h16a8 8 0 0 1-16 0Z" />
+                <path d="M9 9c0-1.6 1.2-1.6 1.2-3.2M13.5 9c0-1.6 1.2-1.6 1.2-3.2" />
+            </svg>
+        );
+    }
+    if (
+        name.includes("bbq") ||
+        name.includes("grill") ||
+        name.includes("kebab") ||
+        name.includes("tikka")
+    ) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M12 3.5s5 4.5 5 9a5 5 0 0 1-10 0c0-2 1-3.5 2-5 .5 1.5 1.5 2 2 2.5.5-2.5 0-4.5 1-6.5Z" />
+            </svg>
+        );
+    }
+    if (
+        name.includes("biryani") ||
+        name.includes("rice") ||
+        name.includes("pulao")
+    ) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M4 13.5h16a8 8 0 0 1-16 0Z" />
+                <path d="M8 10h.01M12 8.5h.01M16 10h.01" />
+            </svg>
+        );
+    }
+    if (
+        name.includes("karahi") ||
+        name.includes("handi") ||
+        name.includes("curry")
+    ) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M5.5 11h13v2.5a6.5 6.5 0 0 1-13 0V11Z" />
+                <path d="M5.5 11H3.8a1.6 1.6 0 0 1-1.6-1.9M18.5 11h1.7a1.6 1.6 0 0 0 1.6-1.9" />
+                <path d="M9.5 7.5c0-1.2 1-1.2 1-2.2M13.5 7.5c0-1.2 1-1.2 1-2.2" />
+            </svg>
+        );
+    }
+    if (
+        name.includes("shawarma") ||
+        name.includes("wrap") ||
+        name.includes("roll") ||
+        name.includes("sandwich")
+    ) {
+        return (
+            <svg {...svgProps} className={className}>
+                <path d="M5 8.5h14a3 3 0 0 1 0 6H5a3 3 0 0 1 0-6Z" />
+                <path d="M9.5 8.5v6M14 8.5v6" />
+            </svg>
+        );
+    }
+    return (
+        <svg {...svgProps} className={className}>
+            <path d="M4 17.5h16" />
+            <path d="M5 17.5a7 7 0 0 1 14 0" />
+            <path d="M12 10.5V9" />
+            <circle cx="12" cy="7.8" r="0.9" />
+        </svg>
+    );
+}
+
 export default function HomeClient({
     items,
     restaurant,
@@ -450,16 +626,33 @@ export default function HomeClient({
                                                 }
                                             }}
                                             type="button"
+                                            aria-pressed={isActive}
                                             onClick={() =>
                                                 setActiveCategory(category)
                                             }
-                                            className={`shrink-0 snap-start whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition ${
-                                                isActive
-                                                    ? "bg-brand text-white shadow-soft"
-                                                    : "border border-hairline bg-surface text-ink-soft shadow-soft hover:text-ink"
-                                            }`}
+                                            className="flex w-[68px] shrink-0 snap-start flex-col items-center gap-1.5 pb-1"
                                         >
-                                            {category}
+                                            <span
+                                                className={`flex h-14 w-14 items-center justify-center rounded-2xl transition ${
+                                                    isActive
+                                                        ? "bg-brand text-white shadow-soft"
+                                                        : "border border-hairline bg-surface text-ink-soft shadow-soft hover:text-brand"
+                                                }`}
+                                            >
+                                                <CategoryIcon
+                                                    category={category}
+                                                    className="h-7 w-7"
+                                                />
+                                            </span>
+                                            <span
+                                                className={`w-full truncate text-center text-[11px] font-semibold leading-tight ${
+                                                    isActive
+                                                        ? "text-brand"
+                                                        : "text-ink-soft"
+                                                }`}
+                                            >
+                                                {category}
+                                            </span>
                                         </button>
                                     );
                                 })}
@@ -498,13 +691,14 @@ export default function HomeClient({
             </header>
 
             <div className="mx-auto max-w-7xl px-4 pb-32 sm:px-6 lg:px-8">
-                {/* Menu grid */}
-                <section className="mt-6">
-                    <div className="mb-5">
-                        <p className="text-sm font-semibold text-brand">
+                {/* Menu grid — two columns even on a phone, so several
+                    dishes are visible at once like in the reference. */}
+                <section className="mt-4 sm:mt-6">
+                    <div className="mb-3 sm:mb-5">
+                        <p className="text-xs font-semibold text-brand sm:text-sm">
                             Explore our selection
                         </p>
-                        <h3 className="mt-0.5 text-2xl font-bold tracking-tight">
+                        <h3 className="mt-0.5 text-xl font-bold tracking-tight sm:text-2xl">
                             {activeCategory === "All"
                                 ? "Full Menu"
                                 : activeCategory}
@@ -518,11 +712,11 @@ export default function HomeClient({
                             </p>
                         </div>
                     ) : (
-                        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
                             {availableItems.map((item) => (
                                 <article
                                     key={item.id}
-                                    className="group flex flex-col overflow-hidden rounded-[1.5rem] border border-hairline bg-surface p-3 shadow-soft transition hover:shadow-lift"
+                                    className="group flex flex-col overflow-hidden rounded-2xl border border-hairline bg-surface p-2 shadow-soft transition hover:shadow-lift sm:rounded-[1.5rem] sm:p-3"
                                 >
                                     <button
                                         type="button"
@@ -536,34 +730,38 @@ export default function HomeClient({
                                                     "/placeholder.png"
                                                 }
                                                 alt={item.ProductName}
-                                                className="h-48 w-full rounded-3xl object-cover sm:h-52"
+                                                className="h-28 w-full rounded-xl object-cover sm:h-44 sm:rounded-3xl"
                                             />
-                                            <span className="absolute left-4 top-4 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-ink backdrop-blur">
+                                            <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink backdrop-blur sm:left-4 sm:top-4 sm:px-2.5 sm:py-1 sm:text-[10px]">
                                                 {item.category}
                                             </span>
                                         </div>
 
-                                        <div className="flex flex-1 flex-col px-2 pb-2 pt-4">
-                                            <div className="flex items-start justify-between gap-3">
-                                                <h4 className="font-bold text-ink">
+                                        <div className="flex flex-1 flex-col px-1 pb-1 pt-2.5 sm:px-2 sm:pb-2 sm:pt-4">
+                                            <div className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                                                <h4 className="text-sm font-bold leading-tight text-ink sm:text-base">
                                                     {item.ProductName}
                                                 </h4>
-                                                <span className="whitespace-nowrap text-sm font-bold text-price">
+                                                <span className="whitespace-nowrap text-xs font-bold text-price sm:text-sm">
                                                     Starts From Rs.{" "}
                                                     {getStartingPrice(item)}
                                                 </span>
                                             </div>
 
-                                            <p className="mt-2 line-clamp-2 text-sm leading-5 text-ink-soft">
+                                            <p className="mt-1 line-clamp-1 text-xs leading-4 text-ink-soft sm:mt-2 sm:line-clamp-2 sm:text-sm sm:leading-5">
                                                 {item.description}
                                             </p>
 
                                             {item.sizes.length > 0 && (
-                                                <div className="mt-2 flex flex-wrap gap-1">
-                                                    {item.sizes.map((s) => (
+                                                <div className="mt-1.5 flex flex-wrap gap-1 sm:mt-2">
+                                                    {item.sizes.map((s, idx) => (
                                                         <span
                                                             key={s.id}
-                                                            className="rounded-full bg-surface-tint px-2 py-0.5 text-[10px] font-semibold text-ink-soft"
+                                                            className={`rounded-full bg-surface-tint px-2 py-0.5 text-[9px] font-semibold text-ink-soft sm:text-[10px] ${
+                                                                idx > 1
+                                                                    ? "hidden sm:inline-flex"
+                                                                    : ""
+                                                            }`}
                                                         >
                                                             {s.Size} · Rs.{" "}
                                                             {s.price}
@@ -577,7 +775,7 @@ export default function HomeClient({
                                     <button
                                         type="button"
                                         onClick={() => setSelectedItem(item)}
-                                        className="mt-4 w-full rounded-full bg-brand py-2.5 text-sm font-bold text-white transition hover:bg-brand-deep"
+                                        className="mt-2.5 w-full rounded-full bg-brand py-2 text-xs font-bold text-white transition hover:bg-brand-deep sm:mt-4 sm:py-2.5 sm:text-sm"
                                     >
                                         + Add to Order
                                     </button>
