@@ -60,6 +60,23 @@ function minutesOf(time: string): number | null {
     return h * 60 + m;
 }
 
+// Search matching: every word of the query must appear (partial
+// substring, case-insensitive) somewhere in the dish's name,
+// description or category combined — e.g. "chick" matches
+// "chicken", "bbq pizza" matches a BBQ pizza. A dish with no
+// description matches on name + category only.
+function matchesSearch(item: MenuItem, query: string): boolean {
+    const words = query
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((w) => w.length > 0);
+    if (words.length === 0) return true;
+    const haystack = [item.ProductName, item.description ?? "", item.category]
+        .join(" ")
+        .toLowerCase();
+    return words.every((word) => haystack.includes(word));
+}
+
 // Is the restaurant open right now? Handles closing after midnight
 // (e.g. open 18:00, close 02:00). Null when the hours are not set.
 function isOpenNow(
@@ -262,6 +279,41 @@ export default function HomeClient({
     const [activeCategory, setActiveCategory] = useState("All");
     const [searchValue, setSearchValue] = useState("");
 
+    // Search mode: active whenever the query is non-empty after
+    // trimming. While searching, the page shows ONLY the search bar
+    // and the vertical results list below — Popular, the category
+    // slider and the Full Menu grid are hidden until the search is
+    // cleared. Typing filters live; Enter just dismisses the
+    // keyboard and scrolls the results into view.
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
+    const searchResultsRef = useRef<HTMLElement | null>(null);
+    const searchQuery = searchValue.trim();
+    const isSearching = searchQuery.length > 0;
+
+    const searchResults = useMemo(
+        () =>
+            items.filter(
+                (item) => item.isAvailable && matchesSearch(item, searchQuery)
+            ),
+        [items, searchQuery]
+    );
+
+    const applySearch = () => {
+        // Dismiss the on-screen keyboard, then bring the results
+        // below the sticky header (scroll-mt on the section keeps
+        // them from sliding under it).
+        searchInputRef.current?.blur();
+        searchResultsRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+        });
+    };
+
+    const clearSearch = () => {
+        setSearchValue("");
+        searchInputRef.current?.blur();
+    };
+
     // Category pills come from the menu itself, so they always match the
     // categories actually in use (and the admin menu filters).
     const categories = useMemo(
@@ -373,9 +425,10 @@ export default function HomeClient({
     // "Popular" carousel: the server ranked these by total ordered
     // quantity (menu order when there are no orders yet). Only
     // available items, in the server's order. This section ignores
-    // the category filter and search on purpose — it always shows
-    // the restaurant's overall most-ordered dishes, while the grid
-    // below is the one that filters.
+    // the category filter on purpose — it always shows the
+    // restaurant's overall most-ordered dishes, while the grid
+    // below is the one that filters. Search hides this section
+    // entirely and shows its own results view instead.
     const popularItems = useMemo(() => {
         const byId = new Map(items.map((item) => [item.id, item]));
         return popularItemIds
@@ -416,22 +469,19 @@ export default function HomeClient({
         });
     };
 
+    // The grid filters by category only. Search has its own
+    // dedicated results view (see searchResults above) and hides
+    // this grid while it is active.
     const availableItems = useMemo(
         () =>
             items.filter((item) => {
                 if (!item.isAvailable) return false;
-
-                const matchesCategory =
+                return (
                     activeCategory === "All" ||
-                    item.category === activeCategory;
-
-                const matchesSearch = item.ProductName.toLowerCase().includes(
-                    searchValue.toLowerCase()
+                    item.category === activeCategory
                 );
-
-                return matchesCategory && matchesSearch;
             }),
-        [items, activeCategory, searchValue]
+        [items, activeCategory]
     );
 
     const getStartingPrice = (item: MenuItem) => {
@@ -603,17 +653,34 @@ export default function HomeClient({
                         </span>
                     </div>
 
-                    {/* Search — inside the sticky block, so it never scrolls away */}
-                    <div className="relative mt-3">
+                    {/* Search — inside the sticky block, so it never scrolls away.
+                        The input is text-base (16px): iOS Safari auto-zooms
+                        any input under 16px, which made the page jump on
+                        mobile. The bar keeps its visual size. Enter submits
+                        the form: keyboard dismisses and results scroll
+                        into view. The × clears the search and restores
+                        the full page. */}
+                    <form
+                        role="search"
+                        className="relative mt-3"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            applySearch();
+                        }}
+                    >
                         <input
+                            ref={searchInputRef}
                             type="text"
+                            enterKeyHint="search"
+                            autoComplete="off"
+                            aria-label="Search the menu"
                             placeholder="Search for food or drinks..."
                             value={searchValue}
                             onChange={(e) => setSearchValue(e.target.value)}
-                            className="w-full rounded-full border border-hairline bg-surface py-3.5 pl-12 pr-4 text-sm text-ink shadow-soft outline-none transition placeholder:text-ink-muted focus:border-brand focus:ring-4 focus:ring-brand-soft"
+                            className="w-full rounded-full border border-hairline bg-surface py-3.5 pl-12 pr-10 text-base text-ink shadow-soft outline-none transition placeholder:text-ink-muted focus:border-brand focus:ring-4 focus:ring-brand-soft"
                         />
                         <svg
-                            className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-muted"
+                            className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-muted"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -625,10 +692,34 @@ export default function HomeClient({
                                 d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"
                             />
                         </svg>
-                    </div>
+                        {searchValue.length > 0 ? (
+                            <button
+                                type="button"
+                                aria-label="Clear search"
+                                onClick={clearSearch}
+                                className="absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-surface-tint text-ink-soft transition hover:text-brand"
+                            >
+                                <svg
+                                    className="h-4 w-4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2.5"
+                                        d="M6 6l12 12M18 6L6 18"
+                                    />
+                                </svg>
+                            </button>
+                        ) : null}
+                    </form>
 
-                    {/* Category slider */}
-                    <div className="mt-3 flex items-center gap-1.5">
+                    {/* Category slider — hidden while searching; the
+                        results view below replaces it. */}
+                    {!isSearching ? (
+                        <div className="mt-3 flex items-center gap-1.5">
                         <button
                             type="button"
                             aria-label="Scroll categories left"
@@ -736,17 +827,107 @@ export default function HomeClient({
                                 />
                             </svg>
                         </button>
-                    </div>
+                        </div>
+                    ) : null}
                 </div>
             </header>
 
             <div className="mx-auto max-w-7xl px-4 pb-32 sm:px-6 lg:px-8">
+                {/* Search results — the ONLY thing shown while searching:
+                    a vertical list, one dish per row (photo, name +
+                    category, red price, red Add button). Tapping a row
+                    or its Add button opens the same item modal as the
+                    grid. scroll-mt keeps the list from sliding under
+                    the sticky header when Enter scrolls to it. */}
+                {isSearching ? (
+                    <section
+                        ref={searchResultsRef}
+                        className="mt-4 scroll-mt-56 sm:mt-6"
+                    >
+                        <div className="mb-3 sm:mb-4">
+                            <p className="text-xs font-semibold text-brand sm:text-sm">
+                                Search results
+                            </p>
+                            <h3 className="mt-0.5 text-xl font-bold tracking-tight sm:text-2xl">
+                                {searchResults.length === 0
+                                    ? "No dishes found"
+                                    : `${searchResults.length} result${searchResults.length === 1 ? "" : "s"} for “${searchQuery}”`}
+                            </h3>
+                        </div>
+
+                        {searchResults.length === 0 ? (
+                            <div className="rounded-card border border-hairline bg-surface-tint p-10 text-center">
+                                <p className="text-sm text-ink-soft">
+                                    No dishes found for “{searchQuery}”.
+                                    Try a different dish, ingredient or
+                                    category.
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={clearSearch}
+                                    className="mt-4 rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-deep"
+                                >
+                                    Clear search
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-3">
+                                {searchResults.map((item) => (
+                                    <article
+                                        key={item.id}
+                                        onClick={() =>
+                                            setSelectedItem(item)
+                                        }
+                                        className="flex cursor-pointer items-center gap-3 rounded-2xl border border-hairline bg-surface p-2.5 shadow-soft transition hover:shadow-lift sm:gap-4 sm:p-3"
+                                    >
+                                        <img
+                                            src={
+                                                item.imageUrl ??
+                                                "/placeholder.png"
+                                            }
+                                            alt={item.ProductName}
+                                            className="h-20 w-20 shrink-0 rounded-xl object-cover sm:h-24 sm:w-24"
+                                        />
+                                        <div className="min-w-0 flex-1">
+                                            <h4 className="truncate text-sm font-bold leading-tight text-ink sm:text-base">
+                                                {item.ProductName}
+                                            </h4>
+                                            <p className="mt-0.5 truncate text-xs text-ink-soft sm:text-sm">
+                                                {item.category}
+                                                {item.description
+                                                    ? ` · ${item.description}`
+                                                    : ""}
+                                            </p>
+                                            <span className="mt-1 block text-xs font-bold text-price sm:text-sm">
+                                                Starts From Rs.{" "}
+                                                {getStartingPrice(item)}
+                                            </span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            aria-label={`Add ${item.ProductName} to order`}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedItem(item);
+                                            }}
+                                            className="shrink-0 rounded-full bg-brand px-4 py-2.5 text-xs font-bold text-white transition hover:bg-brand-deep sm:px-5 sm:text-sm"
+                                        >
+                                            + Add
+                                        </button>
+                                    </article>
+                                ))}
+                            </div>
+                        )}
+                    </section>
+                ) : null}
+
                 {/* Popular — a horizontal sliding carousel (swipe on
                     touch, chevron buttons on desktop), not a vertical
                     list. Fixed-width cards peek in from the right edge
                     to invite a slide. Tapping a card opens the same
-                    item modal as the grid below. */}
-                {popularItems.length > 0 ? (
+                    item modal as the grid below. Hidden while
+                    searching — the results view replaces it. */}
+                {!isSearching && popularItems.length > 0 ? (
                     <section className="mt-4 scroll-mt-56 sm:mt-6">
                         <div className="mb-3 flex items-end justify-between gap-3 sm:mb-4">
                             <div>
@@ -900,8 +1081,9 @@ export default function HomeClient({
                 {/* Menu grid — two columns even on a phone, so several
                     dishes are visible at once like in the reference.
                     scroll-mt keeps the heading from sliding half-hidden
-                    under the sticky header. */}
-                <section className="mt-10 scroll-mt-56 sm:mt-12">
+                    under the sticky header. Hidden while searching. */}
+                {!isSearching ? (
+                    <section className="mt-10 scroll-mt-56 sm:mt-12">
                     <div className="mb-3 sm:mb-5">
                         <p className="text-xs font-semibold text-brand sm:text-sm">
                             Explore our selection
@@ -992,6 +1174,7 @@ export default function HomeClient({
                         </div>
                     )}
                 </section>
+                ) : null}
 
                 {/* Footer — the welcome content lives here now, not in a
                     hero at the top. */}
