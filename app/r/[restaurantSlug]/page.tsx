@@ -95,7 +95,21 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
             .sort((a, b) => b[1] - a[1])
             .slice(0, 8)
             .map(([id]) => id);
-        if (fromOrders.length > 0) return fromOrders;
+        if (fromOrders.length > 0) {
+            // Pad with the next available dishes in menu order so the
+            // carousel always shows up to 8 cards: a restaurant may have
+            // orders for only a couple of dishes, and the ranked list
+            // alone would leave the carousel with nothing to slide to.
+            // Most-selling dishes stay first, in rank order.
+            const ranked = new Set(fromOrders);
+            for (const item of menuItems) {
+                if (fromOrders.length >= 8) break;
+                if (item.isAvailable && !ranked.has(item.id)) {
+                    fromOrders.push(item.id);
+                }
+            }
+            return fromOrders;
+        }
         return menuItems
             .filter((item) => item.isAvailable)
             .slice(0, 8)
