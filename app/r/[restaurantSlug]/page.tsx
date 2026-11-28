@@ -63,6 +63,45 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
         orderBy: { createdAt: "desc" },
     });
 
+    // "Popular" ranking: total quantity ordered per menu item, only for
+    // this restaurant's orders that were not cancelled or abandoned.
+    // When the restaurant has no orders yet, fall back to the first
+    // available items in menu order so the section still shows.
+    // Only available items can be popular.
+    const popularItemIds = await (async () => {
+        const availableIds = new Set(
+            menuItems.filter((item) => item.isAvailable).map((item) => item.id)
+        );
+        const orderedLines = await prisma.orderItem.findMany({
+            where: {
+                menuItemId: { not: null },
+                order: {
+                    restaurantId: restaurant.id,
+                    status: { notIn: ["CANCELLED", "EXPIRED"] },
+                },
+            },
+            select: { menuItemId: true, quantity: true },
+        });
+        const totals = new Map<number, number>();
+        for (const line of orderedLines) {
+            if (line.menuItemId === null) continue;
+            totals.set(
+                line.menuItemId,
+                (totals.get(line.menuItemId) ?? 0) + line.quantity
+            );
+        }
+        const fromOrders = [...totals.entries()]
+            .filter(([id]) => availableIds.has(id))
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8)
+            .map(([id]) => id);
+        if (fromOrders.length > 0) return fromOrders;
+        return menuItems
+            .filter((item) => item.isAvailable)
+            .slice(0, 8)
+            .map((item) => item.id);
+    })();
+
     // Close anything stale first, so a new guest never gets attached to
     // an order that should already have been completed or expired.
     await expireStaleOrders(restaurant.id);
@@ -100,6 +139,7 @@ export default async function RestaurantPage({ params, searchParams }: Props) {
     return (
         <HomeClient
             items={menuItems}
+            popularItemIds={popularItemIds}
             restaurant={{
                 id: restaurant.id,
                 name: restaurant.name,

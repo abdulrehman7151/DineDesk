@@ -16,6 +16,9 @@ type CartLine = {
 
 type Props = {
     items: MenuItem[];
+    // Most-ordered dish ids, ranked by the server (menu order when
+    // the restaurant has no orders yet). Drives the Popular carousel.
+    popularItemIds: number[];
     restaurant: Restaurant;
     tableId: string | null;
     tableNumber: number | null;
@@ -250,6 +253,7 @@ function CategoryIcon({
 
 export default function HomeClient({
     items,
+    popularItemIds,
     restaurant,
     tableId,
     tableNumber,
@@ -362,6 +366,52 @@ export default function HomeClient({
     const scrollSlider = (direction: 1 | -1) => {
         sliderRef.current?.scrollBy({
             left: direction * 260,
+            behavior: "smooth",
+        });
+    };
+
+    // "Popular" carousel: the server ranked these by total ordered
+    // quantity (menu order when there are no orders yet). Only
+    // available items, in the server's order. This section ignores
+    // the category filter and search on purpose — it always shows
+    // the restaurant's overall most-ordered dishes, while the grid
+    // below is the one that filters.
+    const popularItems = useMemo(() => {
+        const byId = new Map(items.map((item) => [item.id, item]));
+        return popularItemIds
+            .map((id) => byId.get(id))
+            .filter(
+                (item): item is MenuItem =>
+                    Boolean(item && item.isAvailable)
+            )
+            .slice(0, 8);
+    }, [items, popularItemIds]);
+
+    // Popular carousel sliding: swipe on touch, chevron buttons on
+    // desktop — same smooth-slide behaviour as the category slider.
+    const popularRef = useRef<HTMLDivElement | null>(null);
+    const [canScrollPopularLeft, setCanScrollPopularLeft] = useState(false);
+    const [canScrollPopularRight, setCanScrollPopularRight] =
+        useState(false);
+
+    const updatePopularButtons = () => {
+        const el = popularRef.current;
+        if (!el) return;
+        setCanScrollPopularLeft(el.scrollLeft > 4);
+        setCanScrollPopularRight(
+            el.scrollLeft + el.clientWidth < el.scrollWidth - 4
+        );
+    };
+
+    useEffect(() => {
+        updatePopularButtons();
+        window.addEventListener("resize", updatePopularButtons);
+        return () => window.removeEventListener("resize", updatePopularButtons);
+    }, [popularItems]);
+
+    const scrollPopular = (direction: 1 | -1) => {
+        popularRef.current?.scrollBy({
+            left: direction * 272,
             behavior: "smooth",
         });
     };
@@ -691,9 +741,167 @@ export default function HomeClient({
             </header>
 
             <div className="mx-auto max-w-7xl px-4 pb-32 sm:px-6 lg:px-8">
+                {/* Popular — a horizontal sliding carousel (swipe on
+                    touch, chevron buttons on desktop), not a vertical
+                    list. Fixed-width cards peek in from the right edge
+                    to invite a slide. Tapping a card opens the same
+                    item modal as the grid below. */}
+                {popularItems.length > 0 ? (
+                    <section className="mt-4 scroll-mt-56 sm:mt-6">
+                        <div className="mb-3 flex items-end justify-between gap-3 sm:mb-4">
+                            <div>
+                                <p className="text-xs font-semibold text-brand sm:text-sm">
+                                    Most ordered
+                                </p>
+                                <h3 className="mt-0.5 text-xl font-bold tracking-tight sm:text-2xl">
+                                    Popular
+                                </h3>
+                            </div>
+                            <div className="hidden shrink-0 gap-2 sm:flex">
+                                <button
+                                    type="button"
+                                    aria-label="Slide popular dishes left"
+                                    onClick={() => scrollPopular(-1)}
+                                    disabled={!canScrollPopularLeft}
+                                    className="flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-surface text-ink-soft shadow-soft transition hover:text-brand disabled:cursor-default disabled:opacity-30"
+                                >
+                                    <svg
+                                        className="h-4 w-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2.5"
+                                            d="M15 19l-7-7 7-7"
+                                        />
+                                    </svg>
+                                </button>
+                                <button
+                                    type="button"
+                                    aria-label="Slide popular dishes right"
+                                    onClick={() => scrollPopular(1)}
+                                    disabled={!canScrollPopularRight}
+                                    className="flex h-9 w-9 items-center justify-center rounded-full border border-hairline bg-surface text-ink-soft shadow-soft transition hover:text-brand disabled:cursor-default disabled:opacity-30"
+                                >
+                                    <svg
+                                        className="h-4 w-4"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth="2.5"
+                                            d="M9 5l7 7-7 7"
+                                        />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="relative -mx-4 px-4 sm:mx-0 sm:px-0">
+                            <div
+                                ref={popularRef}
+                                onScroll={updatePopularButtons}
+                                className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth pb-1"
+                            >
+                                {popularItems.map((item) => (
+                                    <article
+                                        key={item.id}
+                                        className="group flex w-[72vw] max-w-[260px] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border border-hairline bg-surface p-2 shadow-soft transition hover:shadow-lift sm:w-[260px] sm:p-3"
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setSelectedItem(item)
+                                            }
+                                            className="flex flex-1 flex-col text-left"
+                                        >
+                                            <div className="relative">
+                                                <img
+                                                    src={
+                                                        item.imageUrl ??
+                                                        "/placeholder.png"
+                                                    }
+                                                    alt={item.ProductName}
+                                                    className="h-28 w-full rounded-xl object-cover sm:h-36"
+                                                />
+                                                <span className="absolute left-2 top-2 rounded-full bg-white/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink backdrop-blur sm:left-3 sm:top-3 sm:px-2.5 sm:py-1 sm:text-[10px]">
+                                                    {item.category}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex flex-1 flex-col px-1 pb-1 pt-2.5 sm:px-2 sm:pb-2 sm:pt-4">
+                                                <div className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                                                    <h4 className="text-sm font-bold leading-tight text-ink sm:text-base">
+                                                        {item.ProductName}
+                                                    </h4>
+                                                    <span className="whitespace-nowrap text-xs font-bold text-price sm:text-sm">
+                                                        Starts From Rs.{" "}
+                                                        {getStartingPrice(
+                                                            item
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                <p className="mt-1 line-clamp-1 text-xs leading-4 text-ink-soft sm:mt-2 sm:text-sm sm:leading-5">
+                                                    {item.description}
+                                                </p>
+
+                                                {item.sizes.length > 0 && (
+                                                    <div className="mt-1.5 flex flex-wrap gap-1 sm:mt-2">
+                                                        {item.sizes.map(
+                                                            (s, idx) => (
+                                                                <span
+                                                                    key={s.id}
+                                                                    className={`rounded-full bg-surface-tint px-2 py-0.5 text-[9px] font-semibold text-ink-soft sm:text-[10px] ${
+                                                                        idx > 1
+                                                                            ? "hidden sm:inline-flex"
+                                                                            : ""
+                                                                    }`}
+                                                                >
+                                                                    {s.Size} ·{" "}
+                                                                    Rs.{" "}
+                                                                    {s.price}
+                                                                </span>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                setSelectedItem(item)
+                                            }
+                                            className="mt-2.5 w-full rounded-full bg-brand py-2 text-xs font-bold text-white transition hover:bg-brand-deep sm:mt-4 sm:py-2.5 sm:text-sm"
+                                        >
+                                            + Add to Order
+                                        </button>
+                                    </article>
+                                ))}
+                            </div>
+                            {canScrollPopularLeft ? (
+                                <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-surface to-transparent" />
+                            ) : null}
+                            {canScrollPopularRight ? (
+                                <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent" />
+                            ) : null}
+                        </div>
+                    </section>
+                ) : null}
+
                 {/* Menu grid — two columns even on a phone, so several
-                    dishes are visible at once like in the reference. */}
-                <section className="mt-4 sm:mt-6">
+                    dishes are visible at once like in the reference.
+                    scroll-mt keeps the heading from sliding half-hidden
+                    under the sticky header. */}
+                <section className="mt-10 scroll-mt-56 sm:mt-12">
                     <div className="mb-3 sm:mb-5">
                         <p className="text-xs font-semibold text-brand sm:text-sm">
                             Explore our selection
