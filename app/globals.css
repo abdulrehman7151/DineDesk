@@ -40,3 +40,15 @@ body {
     color: var(--color-ink);
     -webkit-font-smoothing: antialiased;
 }
+
+/* Hide the scrollbar on horizontal sliders (e.g. the guest menu
+   category row) while keeping them scrollable by touch, wheel and
+   the chevron buttons. */
+.no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}

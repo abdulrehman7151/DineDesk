@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { SubmitTableOrderAction } from "@/actions/tableOrderAction";
 import OrderStatusTracker from "@/components/OrderStatusTracker";
 import type { MenuItem, Restaurant } from "@/types/menu";
@@ -50,6 +50,28 @@ function formatTime(time: string): string {
     return `${hour12}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
+// "09:00" -> 540 minutes after midnight. Null when unparseable.
+function minutesOf(time: string): number | null {
+    const [h, m] = time.split(":").map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
+    return h * 60 + m;
+}
+
+// Is the restaurant open right now? Handles closing after midnight
+// (e.g. open 18:00, close 02:00). Null when the hours are not set.
+function isOpenNow(
+    openingTime: string | null | undefined,
+    closingTime: string | null | undefined,
+    now: Date
+): boolean | null {
+    const open = openingTime ? minutesOf(openingTime) : null;
+    const close = closingTime ? minutesOf(closingTime) : null;
+    if (open === null || close === null) return null;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    if (close <= open) return nowMin >= open || nowMin < close;
+    return nowMin >= open && nowMin < close;
+}
+
 export default function HomeClient({
     items,
     restaurant,
@@ -92,6 +114,81 @@ export default function HomeClient({
 
     // Local cart
     const [cart, setCart] = useState<CartLine[]>([]);
+
+    // Open-now status, refreshed every minute so "Open now" / "Closed"
+    // never goes stale while the guest is looking at the menu.
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 60_000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const openStatus: { open: boolean | null; text: string } = useMemo(() => {
+        const open = isOpenNow(
+            restaurant.openingTime,
+            restaurant.closingTime,
+            now
+        );
+        if (open === true && restaurant.openingTime && restaurant.closingTime) {
+            return {
+                open: true,
+                text: `Open now · ${formatTime(restaurant.openingTime)} – ${formatTime(restaurant.closingTime)}`,
+            };
+        }
+        if (open === false) {
+            return {
+                open: false,
+                text: restaurant.openingTime
+                    ? `Closed · Opens ${formatTime(restaurant.openingTime)}`
+                    : "Closed",
+            };
+        }
+        return {
+            open: null,
+            text: `Open · until ${
+                restaurant.closingTime
+                    ? formatHour(restaurant.closingTime)
+                    : "11 PM"
+            }`,
+        };
+    }, [restaurant.openingTime, restaurant.closingTime, now]);
+
+    // Category slider: keep the active pill in view and drive the
+    // chevron buttons / edge fades from the scroll position.
+    const sliderRef = useRef<HTMLDivElement | null>(null);
+    const pillRefs = useRef(new Map<string, HTMLButtonElement>());
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+
+    const updateSliderButtons = () => {
+        const el = sliderRef.current;
+        if (!el) return;
+        setCanScrollLeft(el.scrollLeft > 4);
+        setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    };
+
+    useEffect(() => {
+        updateSliderButtons();
+        window.addEventListener("resize", updateSliderButtons);
+        return () => window.removeEventListener("resize", updateSliderButtons);
+    }, []);
+
+    useEffect(() => {
+        pillRefs.current
+            .get(activeCategory)
+            ?.scrollIntoView({
+                behavior: "smooth",
+                inline: "center",
+                block: "nearest",
+            });
+    }, [activeCategory]);
+
+    const scrollSlider = (direction: 1 | -1) => {
+        sliderRef.current?.scrollBy({
+            left: direction * 260,
+            behavior: "smooth",
+        });
+    };
 
     const availableItems = useMemo(
         () =>
@@ -248,64 +345,40 @@ export default function HomeClient({
 
     return (
         <main className="min-h-screen bg-surface text-ink">
-            {/* Header */}
-            <header className="sticky top-0 z-50 border-b border-hairline bg-surface/85 backdrop-blur-md">
-                <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6 lg:px-8">
-                    <div>
-                        <h1 className="text-xl font-bold tracking-tight text-brand">
-                            DineDesk
-                        </h1>
-                        <p className="text-xs text-ink-soft">
-                            Order directly from your table
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 rounded-full border border-hairline bg-surface py-1.5 pl-3 pr-1.5 shadow-soft">
-                        <span className="text-xs text-ink-soft">Table</span>
-                        <span className="flex min-h-7 min-w-7 items-center justify-center rounded-full bg-brand px-2 text-xs font-bold text-white">
-                            {tableNumber ?? "—"}
-                        </span>
-                    </div>
-                </div>
-            </header>
-
-            <div className="mx-auto max-w-7xl px-4 pb-32 sm:px-6 lg:px-8">
-                {/* Hero */}
-                <section className="py-6">
-                    <div className="relative overflow-hidden rounded-card bg-surface-dark p-7 shadow-soft sm:p-9">
-                        <div className="relative z-10">
-                            <p className="text-sm font-semibold text-brand-soft/80">
-                                Welcome to
-                            </p>
-                            <h2 className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            {/* Sticky top: restaurant + search + categories. The whole
+                block stays on screen while scrolling, so the guest never
+                loses the restaurant, the search or the categories. */}
+            <header className="sticky top-0 z-50 border-b border-hairline bg-surface/90 backdrop-blur-md">
+                <div className="mx-auto max-w-7xl px-4 pb-3 pt-3.5 sm:px-6 lg:px-8">
+                    {/* Restaurant row */}
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <h1 className="truncate text-lg font-bold tracking-tight text-ink sm:text-xl">
                                 {restaurant.name}
-                            </h2>
-                            <p className="mt-2 max-w-xl text-sm leading-6 text-white/70">
-                                Explore our menu and order your favorite dishes
-                                directly from your table.
+                            </h1>
+                            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-soft">
+                                <span
+                                    className={`h-2 w-2 shrink-0 rounded-full ${
+                                        openStatus.open === true
+                                            ? "animate-pulse bg-emerald-500"
+                                            : openStatus.open === false
+                                              ? "bg-brand"
+                                              : "bg-amber-400"
+                                    }`}
+                                />
+                                <span className="truncate">
+                                    {openStatus.text}
+                                </span>
                             </p>
-
-                            <div className="mt-5 flex flex-wrap gap-2">
-                                <span className="rounded-full bg-success-bg px-3 py-1.5 text-xs font-bold text-success-text">
-                                    ● Open · until{" "}
-                                    {restaurant.closingTime
-                                        ? formatHour(restaurant.closingTime)
-                                        : "11 PM"}
-                                </span>
-                                <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
-                                    📍 {restaurant.city} · {restaurant.address}
-                                </span>
-                            </div>
                         </div>
 
-                        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-brand/40 blur-3xl" />
-                        <div className="absolute -bottom-20 right-24 h-48 w-48 rounded-full bg-brand/25 blur-3xl" />
+                        <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-3.5 py-1.5 text-xs font-bold text-white shadow-soft">
+                            Table {tableNumber ?? "—"}
+                        </span>
                     </div>
-                </section>
 
-                {/* Search */}
-                <section className="mt-2">
-                    <div className="relative">
+                    {/* Search — inside the sticky block, so it never scrolls away */}
+                    <div className="relative mt-3">
                         <input
                             type="text"
                             placeholder="Search for food or drinks..."
@@ -327,32 +400,106 @@ export default function HomeClient({
                             />
                         </svg>
                     </div>
-                </section>
 
-                {/* Categories */}
-                <section className="mt-6">
-                    <div className="flex gap-2.5 overflow-x-auto pb-2">
-                        {categories.map((category) => {
-                            const isActive = category === activeCategory;
-                            return (
-                                <button
-                                    key={category}
-                                    type="button"
-                                    onClick={() => setActiveCategory(category)}
-                                    className={`whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition ${isActive
-                                        ? "bg-brand text-white shadow-soft"
-                                        : "border border-hairline bg-surface text-ink-soft shadow-soft hover:text-ink"
-                                        }`}
-                                >
-                                    {category}
-                                </button>
-                            );
-                        })}
+                    {/* Category slider */}
+                    <div className="mt-3 flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            aria-label="Scroll categories left"
+                            onClick={() => scrollSlider(-1)}
+                            disabled={!canScrollLeft}
+                            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hairline bg-surface text-ink-soft shadow-soft transition hover:text-brand disabled:cursor-default disabled:opacity-30 sm:flex"
+                        >
+                            <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2.5"
+                                    d="M15 19l-7-7 7-7"
+                                />
+                            </svg>
+                        </button>
+
+                        <div className="relative min-w-0 flex-1">
+                            <div
+                                ref={sliderRef}
+                                onScroll={updateSliderButtons}
+                                className="no-scrollbar flex snap-x gap-2.5 overflow-x-auto scroll-smooth pb-1"
+                            >
+                                {categories.map((category) => {
+                                    const isActive =
+                                        category === activeCategory;
+                                    return (
+                                        <button
+                                            key={category}
+                                            ref={(el) => {
+                                                if (el) {
+                                                    pillRefs.current.set(
+                                                        category,
+                                                        el
+                                                    );
+                                                } else {
+                                                    pillRefs.current.delete(
+                                                        category
+                                                    );
+                                                }
+                                            }}
+                                            type="button"
+                                            onClick={() =>
+                                                setActiveCategory(category)
+                                            }
+                                            className={`shrink-0 snap-start whitespace-nowrap rounded-full px-5 py-2.5 text-sm font-semibold transition ${
+                                                isActive
+                                                    ? "bg-brand text-white shadow-soft"
+                                                    : "border border-hairline bg-surface text-ink-soft shadow-soft hover:text-ink"
+                                            }`}
+                                        >
+                                            {category}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            {canScrollLeft ? (
+                                <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-surface to-transparent" />
+                            ) : null}
+                            {canScrollRight ? (
+                                <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-surface to-transparent" />
+                            ) : null}
+                        </div>
+
+                        <button
+                            type="button"
+                            aria-label="Scroll categories right"
+                            onClick={() => scrollSlider(1)}
+                            disabled={!canScrollRight}
+                            className="hidden h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hairline bg-surface text-ink-soft shadow-soft transition hover:text-brand disabled:cursor-default disabled:opacity-30 sm:flex"
+                        >
+                            <svg
+                                className="h-4 w-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2.5"
+                                    d="M9 5l7 7-7 7"
+                                />
+                            </svg>
+                        </button>
                     </div>
-                </section>
+                </div>
+            </header>
 
+            <div className="mx-auto max-w-7xl px-4 pb-32 sm:px-6 lg:px-8">
                 {/* Menu grid */}
-                <section className="mt-12">
+                <section className="mt-6">
                     <div className="mb-5">
                         <p className="text-sm font-semibold text-brand">
                             Explore our selection
@@ -375,7 +522,7 @@ export default function HomeClient({
                             {availableItems.map((item) => (
                                 <article
                                     key={item.id}
-                                    className="group flex flex-col overflow-hidden rounded-card border border-hairline bg-surface p-3 shadow-soft transition hover:shadow-lift"
+                                    className="group flex flex-col overflow-hidden rounded-[1.5rem] border border-hairline bg-surface p-3 shadow-soft transition hover:shadow-lift"
                                 >
                                     <button
                                         type="button"
@@ -389,7 +536,7 @@ export default function HomeClient({
                                                     "/placeholder.png"
                                                 }
                                                 alt={item.ProductName}
-                                                className="h-44 w-full rounded-2xl object-cover"
+                                                className="h-48 w-full rounded-3xl object-cover sm:h-52"
                                             />
                                             <span className="absolute left-4 top-4 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-ink backdrop-blur">
                                                 {item.category}
@@ -440,15 +587,20 @@ export default function HomeClient({
                     )}
                 </section>
 
-                {/* Footer card */}
-                <section className="mt-12 rounded-card bg-surface-dark p-7 text-center shadow-soft">
-                    <h3 className="text-lg font-bold text-white">
+                {/* Footer — the welcome content lives here now, not in a
+                    hero at the top. */}
+                <section className="mt-12 rounded-card border border-brand/10 bg-brand-soft p-7 text-center shadow-soft">
+                    <p className="text-sm font-semibold text-brand">
+                        Welcome to
+                    </p>
+                    <h3 className="mt-1 text-xl font-bold text-ink">
                         {restaurant.name}
                     </h3>
-                    <p className="mt-1.5 text-sm text-white/60">
-                        Fresh food prepared with quality ingredients.
+                    <p className="mt-1.5 text-sm text-ink-soft">
+                        Explore our menu and order your favorite dishes
+                        directly from your table.
                     </p>
-                    <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-white/70">
+                    <div className="mt-5 flex flex-wrap justify-center gap-x-6 gap-y-2 text-xs text-ink-soft">
                         <span>
                             {restaurant.openingTime && restaurant.closingTime
                                 ? `Open ${formatTime(restaurant.openingTime)} – ${formatTime(restaurant.closingTime)}`
@@ -458,6 +610,9 @@ export default function HomeClient({
                             {restaurant.city} · {restaurant.address}
                         </span>
                         <span>{restaurant.phone}</span>
+                        {tableNumber !== null ? (
+                            <span>Table {tableNumber}</span>
+                        ) : null}
                     </div>
                 </section>
             </div>

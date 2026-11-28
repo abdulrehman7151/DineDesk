@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 
-const categories = [
+const DEFAULT_CATEGORIES = [
     "Burgers",
     "Pizza",
     "Pasta",
@@ -20,6 +20,11 @@ const categories = [
     "Drinks",
     "Desserts",
 ];
+
+// Value of the category dropdown when the restaurant types a custom
+// category instead of picking one of the defaults. Never submitted:
+// the hidden "category" input carries the typed name instead.
+const CUSTOM_CATEGORY_VALUE = "__custom__";
 
 
 const SIZE_SUGGESTIONS = [
@@ -121,6 +126,24 @@ export default function MenuItemForm({ mode, item = null, action }: MenuItemForm
         isEdit ? (item?.sizes?.length ?? 0) > 0 : false
     );
 
+    // Category: one of the defaults, or a custom name the restaurant
+    // types in ("Add new category…"). In edit mode, an item whose
+    // category is not one of the defaults starts in custom mode with
+    // its category prefilled, so it is never lost.
+    const [categoryValue, setCategoryValue] = useState(
+        isEdit && item?.category
+            ? DEFAULT_CATEGORIES.includes(item.category)
+                ? item.category
+                : CUSTOM_CATEGORY_VALUE
+            : ""
+    );
+    const [customCategory, setCustomCategory] = useState(
+        isEdit && item?.category && !DEFAULT_CATEGORIES.includes(item.category)
+            ? item.category
+            : ""
+    );
+    const isCustomCategory = categoryValue === CUSTOM_CATEGORY_VALUE;
+
     const [sizes, setSizes] = useState<
         {
             name: string;
@@ -178,6 +201,8 @@ export default function MenuItemForm({ mode, item = null, action }: MenuItemForm
             // reset sizes / toggle
             setHasSizes(false);
             setSizes([]);
+            setCategoryValue("");
+            setCustomCategory("");
         }, 1200);
 
         return () => clearTimeout(t);
@@ -398,8 +423,11 @@ export default function MenuItemForm({ mode, item = null, action }: MenuItemForm
 
                                 <select
                                     id="category"
-                                    name="category"
-                                    defaultValue={item?.category ?? ""}
+                                    value={categoryValue}
+                                    onChange={(e) =>
+                                        setCategoryValue(e.target.value)
+                                    }
+                                    required
                                     className="w-full rounded-xl border border-hairline bg-surface-tint px-3.5 py-3 text-sm text-ink outline-none transition focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand-soft"
                                 >
 
@@ -407,7 +435,7 @@ export default function MenuItemForm({ mode, item = null, action }: MenuItemForm
                                         Select a category
                                     </option>
 
-                                    {categories.map(
+                                    {DEFAULT_CATEGORIES.map(
                                         (cat) => (
                                             <option
                                                 key={cat}
@@ -418,7 +446,40 @@ export default function MenuItemForm({ mode, item = null, action }: MenuItemForm
                                         )
                                     )}
 
+                                    <option value={CUSTOM_CATEGORY_VALUE}>
+                                        + Add new category…
+                                    </option>
+
                                 </select>
+
+                                {isCustomCategory ? (
+                                    <input
+                                        id="customCategory"
+                                        type="text"
+                                        value={customCategory}
+                                        onChange={(e) =>
+                                            setCustomCategory(e.target.value)
+                                        }
+                                        maxLength={30}
+                                        required
+                                        placeholder="e.g. BBQ, Karahi, Biryani"
+                                        className="mt-2 w-full rounded-xl border border-hairline bg-surface-tint px-3.5 py-3 text-sm text-ink outline-none transition placeholder:text-ink-muted focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand-soft"
+                                    />
+                                ) : null}
+
+                                {/* The submitted value: the chosen default,
+                                    or the typed custom name. The dropdown
+                                    itself carries no name so "__custom__"
+                                    is never submitted. */}
+                                <input
+                                    type="hidden"
+                                    name="category"
+                                    value={
+                                        isCustomCategory
+                                            ? customCategory.trim()
+                                            : categoryValue
+                                    }
+                                />
 
                             </div>
 
